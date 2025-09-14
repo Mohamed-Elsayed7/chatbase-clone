@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabaseClient'
 export default function ChatbotForm({ onAdd }: { onAdd: () => void }) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [websiteUrl, setWebsiteUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -14,13 +15,16 @@ export default function ChatbotForm({ onAdd }: { onAdd: () => void }) {
     setLoading(true)
     setError(null)
 
-    const { error } = await supabase.from('chatbots').insert([{ name, description }])
+    const { error } = await supabase.from('chatbots').insert([
+      { name, description, website_url: websiteUrl }
+    ])
 
     if (error) setError(error.message)
     else {
       setName('')
       setDescription('')
-      onAdd() // refresh list
+      setWebsiteUrl('')
+      onAdd() // refresh chatbot list
     }
 
     setLoading(false)
@@ -30,6 +34,8 @@ export default function ChatbotForm({ onAdd }: { onAdd: () => void }) {
     <form onSubmit={handleSubmit} className="bg-white shadow p-6 rounded-md mb-6">
       <h2 className="text-lg font-semibold mb-4">Add Chatbot</h2>
       {error && <p className="text-red-600 mb-2">{error}</p>}
+
+      {/* Chatbot Name */}
       <div className="mb-3">
         <input
           type="text"
@@ -40,6 +46,8 @@ export default function ChatbotForm({ onAdd }: { onAdd: () => void }) {
           required
         />
       </div>
+
+      {/* Description */}
       <div className="mb-3">
         <textarea
           placeholder="Description"
@@ -48,6 +56,19 @@ export default function ChatbotForm({ onAdd }: { onAdd: () => void }) {
           className="w-full border px-3 py-2 rounded"
         />
       </div>
+
+      {/* Website URL */}
+      <div className="mb-3">
+        <input
+          type="url"
+          placeholder="Website URL (optional)"
+          value={websiteUrl}
+          onChange={(e) => setWebsiteUrl(e.target.value)}
+          className="w-full border px-3 py-2 rounded"
+        />
+      </div>
+
+      {/* Save Button */}
       <button
         type="submit"
         disabled={loading}
