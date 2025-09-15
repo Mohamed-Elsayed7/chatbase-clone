@@ -131,6 +131,9 @@ export default function Dashboard() {
                         </button>
                         <button
                           onClick={async () => {
+                            const confirmed = window.confirm(`Delete "${bot.name}"? This cannot be undone.`);
+                            if (!confirmed) return;
+
                             const { error } = await supabase
                               .from('chatbots')
                               .delete()
