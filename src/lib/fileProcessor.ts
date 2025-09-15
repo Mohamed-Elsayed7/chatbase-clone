@@ -15,40 +15,29 @@ function chunkText(text: string, chunkSize = 1000): string[] {
   return chunks;
 }
 
-// Process TXT file (client-side, then send to API route)
-export async function processTxtFile(chatbotId: number, file: File) {
+// Process TXT file → send text chunks to API
+export async function processTxtFile(chatbotId: number, file: File, fileId: number) {
   const text = await file.text();
   const chunks = chunkText(text);
 
-  // Send each chunk to the server API for embedding
   for (const chunk of chunks) {
     await fetch("/api/embed", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chatbotId, text: chunk }),
+      body: JSON.stringify({ chatbotId, fileId, text: chunk }),
     });
   }
 }
 
-// src/lib/fileProcessor.ts
-export async function processPdfFile(chatbotId: number, file: File) {
+// Process PDF file → send file to API for server-side parsing
+export async function processPdfFile(chatbotId: number, file: File, fileId: number) {
   const formData = new FormData();
-  formData.append("chatbotId", String(chatbotId));
+  formData.append("chatbotId", chatbotId.toString());
+  formData.append("fileId", fileId.toString());
   formData.append("file", file);
 
-  const res = await fetch("/api/process-pdf", {
+  await fetch("/api/process-pdf", {
     method: "POST",
     body: formData,
   });
-
-  if (!res.ok) {
-    let msg = `PDF processing failed (${res.status})`;
-    try {
-      const j = await res.json();
-      if (j?.error) msg = j.error;
-    } catch {}
-    throw new Error(msg);
-  }
-
-  return res.json();
 }

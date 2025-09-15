@@ -20,14 +20,16 @@ function chunkText(text: string, chunkSize = 1000): string[] {
 
 export async function POST(req: Request) {
   try {
-    const { chatbotId, text } = await req.json();
+    const { chatbotId, fileId, text } = await req.json();
 
-    if (!chatbotId || !text) {
-      return NextResponse.json({ error: "Missing chatbotId or text" }, { status: 400 });
+    if (!chatbotId || !fileId || !text) {
+      return NextResponse.json(
+        { error: "Missing chatbotId, fileId, or text" },
+        { status: 400 }
+      );
     }
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
     const chunks = chunkText(text);
 
     for (const chunk of chunks) {
@@ -39,7 +41,12 @@ export async function POST(req: Request) {
       const embedding = embeddingResponse.data[0].embedding;
 
       await supabase.from("chatbot_embeddings").insert([
-        { chatbot_id: Number(chatbotId), content: chunk, embedding },
+        {
+          chatbot_id: Number(chatbotId),
+          file_id: Number(fileId),
+          content: chunk,
+          embedding,
+        },
       ]);
     }
 
