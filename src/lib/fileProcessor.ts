@@ -29,3 +29,26 @@ export async function processTxtFile(chatbotId: number, file: File) {
     });
   }
 }
+
+// src/lib/fileProcessor.ts
+export async function processPdfFile(chatbotId: number, file: File) {
+  const formData = new FormData();
+  formData.append("chatbotId", String(chatbotId));
+  formData.append("file", file);
+
+  const res = await fetch("/api/process-pdf", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    let msg = `PDF processing failed (${res.status})`;
+    try {
+      const j = await res.json();
+      if (j?.error) msg = j.error;
+    } catch {}
+    throw new Error(msg);
+  }
+
+  return res.json();
+}

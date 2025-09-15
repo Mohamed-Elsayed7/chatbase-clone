@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import { processTxtFile } from '@/lib/fileProcessor'
+import { processTxtFile, processPdfFile } from '@/lib/fileProcessor'
 
 export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number, userId: string }) {
   const [uploading, setUploading] = useState(false)
@@ -60,20 +60,7 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
       if (ext === 'txt') {
         await processTxtFile(chatbotId, file)
       } else if (ext === 'pdf') {
-        // Send PDF to server-side API for processing
-        const formData = new FormData()
-        formData.append('file', file)
-        formData.append('chatbotId', chatbotId.toString())
-
-        const res = await fetch('/api/process-pdf', {
-          method: 'POST',
-          body: formData
-        })
-
-        if (!res.ok) {
-          const err = await res.json()
-          throw new Error(err.error || 'Failed to process PDF')
-        }
+        await processPdfFile(chatbotId, file)
       } else {
         console.warn('Unsupported file type for embeddings:', ext)
       }
@@ -90,7 +77,7 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
 
   return (
     <div className="mt-3">
-      <input type="file" onChange={handleFileUpload} />
+      <input type="file" accept=".txt,.pdf" onChange={handleFileUpload} />
       {uploading && <p className="text-blue-600">Uploading & processing...</p>}
       {error && <p className="text-red-600">{error}</p>}
 
