@@ -1,17 +1,28 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabaseClient'
 import { processTxtFile, processPdfFile } from '@/lib/fileProcessor'
+import { supabase } from '@/lib/supabaseClient'
 
 export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number, userId: string }) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [files, setFiles] = useState<any[]>([])
+  const [plan, setPlan] = useState<string>('free') // track plan
 
   useEffect(() => {
     fetchFiles()
+    fetchPlan()
   }, [])
+
+  const fetchPlan = async () => {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('plan')
+      .eq('id', userId)
+      .single()
+    if (profile?.plan) setPlan(profile.plan)
+  }
 
   const fetchFiles = async () => {
     const { data, error } = await supabase
@@ -70,7 +81,7 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
 
     const fileId = fileData.id
 
-    // 3. Process file → embeddings
+    // 3. Process file → embeddings (local functions)
     try {
       if (ext === 'txt') {
         await processTxtFile(chatbotId, file, fileId)
@@ -119,11 +130,24 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
     setFiles(files.filter((f) => f.id !== file.id))
   }
 
+  const limitReached = plan === 'free' && files.length >= 3
+
   return (
     <div className="mt-3">
-      <input type="file" accept=".txt,.pdf" onChange={handleFileUpload} />
+      <input
+        type="file"
+        accept=".txt,.pdf"
+        onChange={handleFileUpload}
+        disabled={limitReached || uploading}
+        className={limitReached ? 'opacity-50 cursor-not-allowed' : ''}
+      />
       {uploading && <p className="text-blue-600">Uploading & processing...</p>}
       {error && <p className="text-red-600">{error}</p>}
+      {limitReached && (
+        <p className="text-red-600 mt-2">
+          Free plan limit reached (3 files). Upgrade to Pro to upload more.
+        </p>
+      )}
 
       <ul className="mt-2 space-y-1">
         {files.map((f) => (

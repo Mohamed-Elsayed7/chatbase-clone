@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+
 import { useRouter } from 'next/navigation'
 import Navbar from '../components/Navbar'
 import Sidebar from '../components/Sidebar'
 import ChatbotForm from './ChatbotForm'
+import { supabase } from '@/lib/supabaseClient'
 
 export default function Dashboard() {
   const [session, setSession] = useState<any>(null)

@@ -3,12 +3,12 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabaseClient'
+
 import Navbar from '../../components/Navbar'
 import Sidebar from '../../components/Sidebar'
 import ChatbotFiles from '../ChatbotFiles'
 import ChatPanel from '../ChatPanel'
-
+import { supabase } from '@/lib/supabaseClient'
 export default function ChatbotDetail() {
   const params = useParams()
   const searchParams = useSearchParams()

@@ -2,8 +2,14 @@ export const runtime = "edge";
 
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
-import { supabase } from "@/lib/supabaseClient";
-import { extractText } from "unpdf"; // Edge-friendly PDF parser
+import { createClient } from "@supabase/supabase-js";
+import { extractText } from "unpdf";
+
+// ✅ Use service role client → bypass RLS
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 function chunkText(text: string, chunkSize = 1000): string[] {
   const words = text.split(" ");
@@ -35,6 +41,44 @@ export async function POST(req: Request) {
       );
     }
 
+    const chatbotIdNum = Number(chatbotId);
+    const fileIdNum = Number(fileId);
+
+    // ✅ Find chatbot (works with service role, bypassing RLS)
+    const { data: chatbot, error: chatbotError } = await supabase
+      .from("chatbots")
+      .select("user_id")
+      .eq("id", chatbotIdNum)
+      .single();
+
+    if (chatbotError || !chatbot) {
+      return NextResponse.json({ error: "Chatbot not found" }, { status: 404 });
+    }
+
+    const userId = chatbot.user_id;
+
+    // ✅ Fetch the user's plan
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("plan")
+      .eq("id", userId)
+      .single();
+
+    // ✅ Enforce Free plan file limit (max 3)
+    if (profile?.plan === "free") {
+      const { count } = await supabase
+        .from("chatbot_files")
+        .select("*", { count: "exact", head: true })
+        .eq("chatbot_id", chatbotIdNum);
+
+      if ((count ?? 0) >= 3) {
+        return NextResponse.json(
+          { error: "Free plan limit reached. Upgrade to Pro." },
+          { status: 403 }
+        );
+      }
+    }
+
     // Convert to Uint8Array for unpdf
     const uint8array = new Uint8Array(await file.arrayBuffer());
     const { text } = await extractText(uint8array, { mergePages: true });
@@ -59,8 +103,8 @@ export async function POST(req: Request) {
 
       await supabase.from("chatbot_embeddings").insert([
         {
-          chatbot_id: Number(chatbotId),
-          file_id: Number(fileId),
+          chatbot_id: chatbotIdNum,
+          file_id: fileIdNum,
           content: chunk,
           embedding,
         },
