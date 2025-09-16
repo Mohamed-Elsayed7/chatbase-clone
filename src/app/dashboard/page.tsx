@@ -1,4 +1,3 @@
-// src/app/dashboard/page.tsx
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -7,16 +6,10 @@ import { useRouter } from 'next/navigation'
 import Navbar from '../components/Navbar'
 import Sidebar from '../components/Sidebar'
 import ChatbotForm from './ChatbotForm'
-import ChatbotFiles from './ChatbotFiles'
-import ChatPanel from './ChatPanel'
 
 export default function Dashboard() {
   const [session, setSession] = useState<any>(null)
   const [chatbots, setChatbots] = useState<any[]>([])
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [editName, setEditName] = useState('')
-  const [editDescription, setEditDescription] = useState('')
-  const [editWebsite, setEditWebsite] = useState('')
   const router = useRouter()
 
   useEffect(() => {
@@ -39,25 +32,6 @@ export default function Dashboard() {
     if (!error && data) setChatbots(data)
   }
 
-  const handleEdit = (bot: any) => {
-    setEditingId(bot.id)
-    setEditName(bot.name)
-    setEditDescription(bot.description || '')
-    setEditWebsite(bot.website_url || '')
-  }
-
-  const handleUpdate = async (id: number) => {
-    const { error } = await supabase
-      .from('chatbots')
-      .update({ name: editName, description: editDescription, website_url: editWebsite })
-      .eq('id', id)
-
-    if (!error && session) {
-      await fetchChatbots(session.user.id)
-      setEditingId(null)
-    }
-  }
-
   if (!session) return <div className="p-8">Loading...</div>
 
   return (
@@ -74,102 +48,49 @@ export default function Dashboard() {
           ) : (
             <ul className="space-y-3">
               {chatbots.map((bot) => (
-                <li key={bot.id} className="bg-white shadow p-4 rounded">
-                  {editingId === bot.id ? (
-                    <div>
-                      <input
-                        type="text"
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        className="w-full border px-3 py-2 rounded mb-2"
-                      />
-                      <textarea
-                        value={editDescription}
-                        onChange={(e) => setEditDescription(e.target.value)}
-                        className="w-full border px-3 py-2 rounded mb-2"
-                      />
-                      <input
-                        type="url"
-                        value={editWebsite}
-                        onChange={(e) => setEditWebsite(e.target.value)}
-                        className="w-full border px-3 py-2 rounded mb-2"
-                        placeholder="Website URL (optional)"
-                      />
-                      <button
-                        onClick={() => handleUpdate(bot.id)}
-                        className="bg-green-600 text-white px-3 py-1 rounded mr-2"
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={() => setEditingId(null)}
-                        className="bg-gray-400 text-white px-3 py-1 rounded"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <div>
-                      <h3 className="font-bold">{bot.name}</h3>
-                      <p className="text-gray-600 mb-2">{bot.description}</p>
-                      {bot.website_url ? (
-                        <p className="text-blue-600 mb-2">
-                          🌐{' '}
-                          <a
-                            href={bot.website_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            {bot.website_url}
-                          </a>
-                        </p>
-                      ) : (
-                        <p className="text-gray-400 mb-2">No website linked</p>
-                      )}
-                      <div className="text-sm text-gray-500 mb-2">
-                        <p>Created: {new Date(bot.created_at).toLocaleString()}</p>
-                        <p>Updated: {new Date(bot.updated_at).toLocaleString()}</p>
-                      </div>
+                <li
+                  key={bot.id}
+                  className="bg-white shadow p-4 rounded flex justify-between items-center"
+                >
+                  <div
+                    className="cursor-pointer"
+                    onClick={() => router.push(`/dashboard/${bot.id}`)}
+                  >
+                    <h3 className="font-bold">{bot.name}</h3>
+                    <p className="text-gray-600 text-sm">{bot.description}</p>
+                  </div>
+                  <div className="space-x-2">
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        const confirmed = window.confirm(
+                          `Delete "${bot.name}"? This cannot be undone.`
+                        )
+                        if (!confirmed) return
 
-                      {/* Files manager */}
-                      <ChatbotFiles chatbotId={bot.id} userId={session.user.id} />
+                        const { error } = await supabase
+                          .from('chatbots')
+                          .delete()
+                          .eq('id', bot.id)
 
-                      {/* Chat UI */}
-                      <div className="mt-4 border-t pt-4">
-                        <h4 className="font-semibold mb-2">Chat with this bot</h4>
-                        <ChatPanel chatbotId={bot.id} />
-                      </div>
-
-                      <div className="mt-3">
-                        <button
-                          onClick={() => handleEdit(bot)}
-                          className="bg-blue-600 text-white px-3 py-1 rounded mr-2"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={async () => {
-                            const confirmed = window.confirm(
-                              `Delete "${bot.name}"? This cannot be undone.`
-                            )
-                            if (!confirmed) return
-
-                            const { error } = await supabase
-                              .from('chatbots')
-                              .delete()
-                              .eq('id', bot.id)
-
-                            if (!error && session) {
-                              await fetchChatbots(session.user.id)
-                            }
-                          }}
-                          className="bg-red-600 text-white px-3 py-1 rounded"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                        if (!error && session) {
+                          await fetchChatbots(session.user.id)
+                        }
+                      }}
+                      className="bg-red-600 text-white px-3 py-1 rounded"
+                    >
+                      Delete
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        router.push(`/dashboard/${bot.id}?tab=settings`)
+                      }}
+                      className="bg-blue-600 text-white px-3 py-1 rounded"
+                    >
+                      Edit
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
