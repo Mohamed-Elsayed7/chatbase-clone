@@ -1,3 +1,4 @@
+// src/app/dashboard/page.tsx
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -7,6 +8,7 @@ import Navbar from '../components/Navbar'
 import Sidebar from '../components/Sidebar'
 import ChatbotForm from './ChatbotForm'
 import ChatbotFiles from './ChatbotFiles'
+import ChatPanel from './ChatPanel'
 
 export default function Dashboard() {
   const [session, setSession] = useState<any>(null)
@@ -112,7 +114,14 @@ export default function Dashboard() {
                       <p className="text-gray-600 mb-2">{bot.description}</p>
                       {bot.website_url ? (
                         <p className="text-blue-600 mb-2">
-                          🌐 <a href={bot.website_url} target="_blank" rel="noopener noreferrer">{bot.website_url}</a>
+                          🌐{' '}
+                          <a
+                            href={bot.website_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {bot.website_url}
+                          </a>
                         </p>
                       ) : (
                         <p className="text-gray-400 mb-2">No website linked</p>
@@ -121,7 +130,16 @@ export default function Dashboard() {
                         <p>Created: {new Date(bot.created_at).toLocaleString()}</p>
                         <p>Updated: {new Date(bot.updated_at).toLocaleString()}</p>
                       </div>
+
+                      {/* Files manager */}
                       <ChatbotFiles chatbotId={bot.id} userId={session.user.id} />
+
+                      {/* Chat UI */}
+                      <div className="mt-4 border-t pt-4">
+                        <h4 className="font-semibold mb-2">Chat with this bot</h4>
+                        <ChatPanel chatbotId={bot.id} />
+                      </div>
+
                       <div className="mt-3">
                         <button
                           onClick={() => handleEdit(bot)}
@@ -131,8 +149,10 @@ export default function Dashboard() {
                         </button>
                         <button
                           onClick={async () => {
-                            const confirmed = window.confirm(`Delete "${bot.name}"? This cannot be undone.`);
-                            if (!confirmed) return;
+                            const confirmed = window.confirm(
+                              `Delete "${bot.name}"? This cannot be undone.`
+                            )
+                            if (!confirmed) return
 
                             const { error } = await supabase
                               .from('chatbots')
