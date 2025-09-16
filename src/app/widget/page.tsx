@@ -6,7 +6,10 @@ import { useState, useRef, useEffect } from 'react'
 export default function WidgetPage() {
   const searchParams = useSearchParams()
   const chatbotId = searchParams.get('chatbotId')
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>([])
+  const chatbotName = searchParams.get('chatbotName') || 'Chatbot'
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>([
+    { role: 'assistant', content: `👋 Hi! I’m ${chatbotName}. How can I help you today?` }
+  ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
@@ -31,25 +34,29 @@ export default function WidgetPage() {
       const data = await res.json()
       setMessages(prev => [...prev, { role: 'assistant', content: data.answer }])
     } catch (e: any) {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Error: ' + e.message }])
+      setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Error: ' + e.message }])
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="flex flex-col h-full w-full bg-white">
-      <div className="flex-none bg-blue-600 text-white p-3 font-semibold rounded-t-lg">
-        Chatbot
+    <div className="flex flex-col h-full w-full bg-white rounded-lg overflow-hidden font-sans">
+      {/* Header */}
+      <div className="flex-none bg-blue-600 text-white p-3 font-semibold flex items-center justify-between">
+        <span>🤖 {chatbotName}</span>
+        <span className="text-xs opacity-75">Powered by GSM</span>
       </div>
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 text-sm">
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 text-sm bg-gray-50">
         {messages.map((m, i) => (
           <div
             key={i}
             className={`p-2 rounded max-w-[80%] ${
               m.role === 'user'
                 ? 'ml-auto bg-blue-500 text-white'
-                : 'bg-gray-200 text-gray-800'
+                : 'bg-white border text-gray-800'
             }`}
           >
             {m.content}
@@ -57,9 +64,11 @@ export default function WidgetPage() {
         ))}
         <div ref={messagesEndRef} />
       </div>
-      <div className="flex-none border-t p-2 flex">
+
+      {/* Input */}
+      <div className="flex-none border-t p-2 flex bg-white">
         <input
-          className="flex-1 border px-2 py-1 rounded"
+          className="flex-1 border px-2 py-1 rounded text-sm"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
@@ -68,7 +77,7 @@ export default function WidgetPage() {
         <button
           onClick={sendMessage}
           disabled={loading}
-          className="ml-2 px-3 py-1 bg-blue-600 text-white rounded"
+          className="ml-2 px-3 py-1 bg-blue-600 text-white rounded text-sm"
         >
           {loading ? '...' : 'Send'}
         </button>

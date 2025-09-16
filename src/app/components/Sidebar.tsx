@@ -13,6 +13,9 @@ export default function Sidebar() {
         <Link href="/help" className="hover:text-blue-600 font-medium">
           Help
         </Link>
+        <Link href="/dashboard/profile" className="hover:text-blue-600 font-medium">
+          Profile
+        </Link>
       </nav>
     </aside>
   )

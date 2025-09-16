@@ -1,34 +1,39 @@
 'use client'
 
-import { supabase } from '@/lib/supabaseClient'
 import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabaseClient'
 
 export default function Navbar() {
-  const [email, setEmail] = useState<string | null>(null)
+  const [displayName, setDisplayName] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setEmail(data.user.email)
-    })
+    const loadProfile = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        const userId = session.user.id
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('first_name')
+          .eq('id', userId)
+          .single()
+
+        if (profile?.first_name) {
+          setDisplayName(profile.first_name)
+        } else {
+          setDisplayName(session.user.email) // fallback
+        }
+      }
+    }
+    loadProfile()
   }, [])
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    window.location.href = '/' // redirect to login page
-  }
-
   return (
-    <nav className="w-full bg-white shadow px-6 py-4 flex justify-between items-center">
-      <h1 className="text-xl font-bold">🚀 Chatbase Clone</h1>
-      <div className="flex items-center gap-4">
-        {email && <span className="text-gray-700">{email}</span>}
-        <button
-          onClick={handleLogout}
-          className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md"
-        >
-          Logout
-        </button>
+    <header className="w-full bg-gray-200 p-4 flex justify-between">
+      <h1 className="font-bold">Dashboard</h1>
+      <div className="text-sm text-gray-700">
+        {displayName ? `Hello, ${displayName}` : 'Hello'}
       </div>
-    </nav>
+    </header>
   )
 }
