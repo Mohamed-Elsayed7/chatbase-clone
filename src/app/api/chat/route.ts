@@ -19,22 +19,26 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 
 export async function POST(req: Request) {
   try {
-    const { chatbotId, question } = await req.json()
-    if (!chatbotId || !question) {
+    const { chatbotId, messages } = await req.json()
+
+    if (!chatbotId || !messages || !Array.isArray(messages)) {
       return NextResponse.json(
-        { error: 'Missing chatbotId or question' },
+        { error: 'Missing chatbotId or messages[]' },
         { status: 400 }
       )
     }
 
-    // 1. Embed question
+    // Latest user message
+    const userMsg = messages[messages.length - 1]?.content || ''
+
+    // 1. Embed last user question
     const emb = await openai.embeddings.create({
       model: 'text-embedding-3-small',
-      input: question,
+      input: userMsg,
     })
     const queryEmbedding = emb.data[0].embedding
 
-    // 2. Query top 5 chunks
+    // 2. Retrieve top 5 chunks from DB
     const { data: matches, error } = await supabase.rpc('match_chatbot_chunks', {
       p_chatbot_id: chatbotId,
       p_query_embedding: queryEmbedding,
@@ -45,21 +49,25 @@ export async function POST(req: Request) {
     // 3. Build context string
     const context = (matches || []).map((m: any) => m.content).join('\n\n')
 
-    // 4. Ask OpenAI with context
+    // 4. Build conversation history for OpenAI
+    const history = [
+      {
+        role: 'system',
+        content:
+          'You are a helpful assistant. Use the provided context when relevant. ' +
+          "If the answer is not in the context, reply: 'I don’t know based on the documents.'",
+      },
+      {
+        role: 'system',
+        content: `Context:\n${context}`,
+      },
+      ...messages, // preserve full user/assistant history
+    ]
+
+    // 5. Call OpenAI with full history
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini', // or gpt-3.5-turbo if cheaper
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are a helpful assistant. Use the provided context to answer. ' +
-            "If the answer is not in the context, reply: 'I don’t know based on the documents.'",
-        },
-        {
-          role: 'user',
-          content: `Context:\n${context}\n\nQuestion: ${question}`,
-        },
-      ],
+      model: 'gpt-4o-mini', // or gpt-3.5-turbo
+      messages: history,
     })
 
     const answer =
