@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
-// import { supabase } from '@/lib/supabaseAdmin' // use service role client
 import { getAdminSupabase } from "@/lib/usage"
 const supabase = getAdminSupabase()
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
