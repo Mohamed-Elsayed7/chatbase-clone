@@ -1,4 +1,4 @@
-  import { createClient } from "@supabase/supabase-js"
+import { createClient } from "@supabase/supabase-js"
 
 export const PLAN_LIMITS: Record<string, number> = {
   free: 50_000,         // 50k tokens/month
@@ -23,12 +23,17 @@ export function getCurrentMonthWindow() {
 }
 
 // ✅ Get user plan
-export async function getUserPlan(admin: ReturnType<typeof createClient>, userId: string) {
+type ProfileRow = { plan: string | null }
+
+export async function getUserPlan(
+  admin: ReturnType<typeof createClient>,
+  userId: string
+) {
   const { data, error } = await admin
     .from("profiles")
     .select("plan")
     .eq("id", userId)
-    .single()
+    .single<ProfileRow>() // 👈 tell TS the shape
 
   if (error) throw error
   return (data?.plan || "free").toLowerCase()
