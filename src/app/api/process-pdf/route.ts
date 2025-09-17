@@ -73,7 +73,7 @@ export async function POST(req: Request) {
         chatbot_id: chatbotIdNum,
         file_id: fileIdNum,
         content: chunk,
-        embedding: JSON.stringify(vector), // 👈 safe storage
+        embedding: vector, // 👈 safe storage
       })
       if (error) throw error
     }
