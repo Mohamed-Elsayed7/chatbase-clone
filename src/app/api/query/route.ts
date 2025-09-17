@@ -44,9 +44,10 @@ export async function POST(req: Request) {
     // ✅ Run match RPC
     const { data, error } = await admin.rpc("match_chatbot_chunks", {
       p_chatbot_id: chatbotId,
-      p_query_embedding: queryEmbedding,
+      p_query_embedding: queryEmbedding as any, // 👈 bypass TS, pgvector still works
       p_match_count: matchCount,
     })
+
 
     if (error) throw error
 
