@@ -25,12 +25,29 @@ export default function ChatPanel({ chatbotId }: { chatbotId: number }) {
     setLoading(true)
 
     try {
+      // 1️⃣ Query embeddings to get context
+      const queryRes = await fetch('/api/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chatbotId,
+          query: input, // latest user question
+        }),
+      })
+      const queryData = await queryRes.json()
+
+      const context = (queryData.matches || [])
+        .map((m: any) => m.content)
+        .join('\n\n')
+
+      // 2️⃣ Call chat with context
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chatbotId,
           messages: newMessages.map(m => ({ role: m.role, content: m.content })), // strip timestamps
+          retrievedContext: context,
         }),
       })
 

@@ -2,20 +2,14 @@ export const runtime = "edge"
 
 import { NextResponse } from "next/server"
 import OpenAI from "openai"
-import { createClient } from "@supabase/supabase-js"
 import { extractText } from "unpdf"
+import { getAdminSupabase, assertWithinPlanLimit, logUsage, countTokensForArray } from "@/lib/usage"
 
-// ✅ Use service role client → bypass RLS
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
+// ✅ Chunk helper
 function chunkText(text: string, chunkSize = 1000): string[] {
-  const words = text.split(" ")
+  const words = text.split(/\s+/)
   const chunks: string[] = []
   let current: string[] = []
-
   for (const word of words) {
     current.push(word)
     if (current.join(" ").length > chunkSize) {
@@ -27,6 +21,8 @@ function chunkText(text: string, chunkSize = 1000): string[] {
   return chunks
 }
 
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData()
@@ -35,85 +31,64 @@ export async function POST(req: Request) {
     const file = formData.get("file") as File
 
     if (!chatbotId || !fileId || !file) {
-      return NextResponse.json(
-        { error: "Missing chatbotId, fileId, or file" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "Missing chatbotId, fileId, or file" }, { status: 400 })
     }
 
     const chatbotIdNum = Number(chatbotId)
     const fileIdNum = Number(fileId)
 
-    // ✅ Find chatbot (works with service role, bypassing RLS)
-    const { data: chatbot, error: chatbotError } = await supabase
+    const admin = getAdminSupabase()
+
+    // ✅ Find chatbot owner
+    const { data: chatbot, error: chatbotError } = await admin
       .from("chatbots")
       .select("user_id")
       .eq("id", chatbotIdNum)
       .single()
-
     if (chatbotError || !chatbot) {
       return NextResponse.json({ error: "Chatbot not found" }, { status: 404 })
     }
-
     const userId = chatbot.user_id
 
-    // ✅ Fetch the user's plan
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("plan")
-      .eq("id", userId)
-      .single()
-
-    // ✅ Enforce Free plan file limit (warn only from 4th file onwards)
-    let planWarning: string | null = null
-    if (profile?.plan === "free") {
-      const { count } = await supabase
-        .from("chatbot_files")
-        .select("*", { count: "exact", head: true })
-        .eq("chatbot_id", chatbotIdNum)
-
-      if ((count ?? 0) >= 3) {
-        planWarning = "Free plan limit reached. Upgrade to Pro for more uploads."
-      }
-    }
-
-    // ✅ Extract text from PDF
+    // ✅ Extract text
     const uint8array = new Uint8Array(await file.arrayBuffer())
     const { text } = await extractText(uint8array, { mergePages: true })
-
     if (!text || !text.trim()) {
       return NextResponse.json({ error: "No text found in PDF" }, { status: 400 })
     }
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
     const chunks = chunkText(text)
+    const estimatedTokens = await countTokensForArray(chunks)
 
-    // ✅ Generate embeddings + store
+    // ✅ Enforce plan
+    await assertWithinPlanLimit(admin, userId, estimatedTokens)
+
+    // ✅ Generate embeddings with ada-002 (1536 dims)
+    const model = "text-embedding-ada-002"
     for (const chunk of chunks) {
-      const embeddingResponse = await openai.embeddings.create({
-        model: "text-embedding-ada-002", // keep consistent with your schema
-        input: chunk,
+      const emb = await openai.embeddings.create({ model, input: chunk })
+      const vector = emb.data[0].embedding
+
+      const { error } = await admin.from("chatbot_embeddings").insert({
+        chatbot_id: chatbotIdNum,
+        file_id: fileIdNum,
+        content: chunk,
+        embedding: vector,
       })
-
-      const embedding = embeddingResponse.data[0].embedding
-
-      await supabase.from("chatbot_embeddings").insert([
-        {
-          chatbot_id: chatbotIdNum,
-          file_id: fileIdNum,
-          content: chunk,
-          embedding,
-        },
-      ])
+      if (error) throw error
     }
 
-    return NextResponse.json({
-      success: true,
-      chunks: chunks.length,
-      warning: planWarning, // null unless free user with 4th+ file
+    // ✅ Log usage
+    await logUsage(admin, {
+      userId,
+      chatbotId: chatbotIdNum,
+      type: "embed",
+      tokens: estimatedTokens,
     })
+
+    return NextResponse.json({ success: true, chunks: chunks.length })
   } catch (err: any) {
     console.error("PDF processing error:", err.message)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ error: err?.message || "Server error" }, { status: err?.status || 500 })
   }
 }

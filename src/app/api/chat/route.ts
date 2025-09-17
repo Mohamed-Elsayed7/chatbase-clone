@@ -1,96 +1,82 @@
-import { NextResponse } from 'next/server'
-import OpenAI from 'openai'
-import { createClient } from '@supabase/supabase-js'
+import { NextResponse } from "next/server"
+import OpenAI from "openai"
+import { getAdminSupabase, assertWithinPlanLimit, logUsage } from "@/lib/usage"
 
-export const runtime = 'nodejs'
+export const dynamic = "force-dynamic"
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 })
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabase = createClient(supabaseUrl, supabaseKey)
-
 export async function POST(req: Request) {
   try {
-    const { chatbotId, messages } = await req.json()
+    const { chatbotId, messages, retrievedContext } = await req.json()
 
     if (!chatbotId || !messages) {
       return NextResponse.json(
-        { error: 'Missing chatbotId or messages[]' },
+        { error: "Missing chatbotId or messages" },
         { status: 400 }
       )
     }
 
-    // ✅ Get chatbot settings (system prompt + tone)
-    const { data: chatbot, error: chatbotError } = await supabase
-      .from('chatbots')
-      .select('system_prompt, tone')
-      .eq('id', chatbotId)
+    const admin = getAdminSupabase()
+
+    // ✅ Fetch chatbot settings + userId for usage tracking
+    const { data: bot, error: botErr } = await admin
+      .from("chatbots")
+      .select("system_prompt, tone, user_id")
+      .eq("id", chatbotId)
       .single()
 
-    if (chatbotError || !chatbot) {
-      throw new Error('Chatbot not found')
+    if (botErr || !bot) {
+      return NextResponse.json({ error: "Chatbot not found" }, { status: 404 })
     }
 
-    // ✅ Get last user message
-    const userMsg = messages[messages.length - 1]?.content || ''
+    const userId = bot.user_id
 
-    // ✅ Create embedding for last user question
-    const emb = await openai.embeddings.create({
-      model: 'text-embedding-3-small',
-      input: userMsg,
-    })
-    const queryEmbedding = emb.data[0].embedding
+    // ✅ Light pre-check to avoid waste if way over cap
+    await assertWithinPlanLimit(admin, userId, 1000)
 
-    // ✅ Retrieve relevant chunks
-    const { data: matches, error } = await supabase.rpc(
-      'match_chatbot_chunks',
-      {
-        p_chatbot_id: chatbotId,
-        p_query_embedding: queryEmbedding,
-        p_match_count: 5,
-      }
-    )
-    if (error) throw error
-
-    const context = (matches || [])
-      .map((m: any) => m.content)
-      .join('\n\n')
-
-    // ✅ Build system prompt with tone + context
-    const systemPrompt =
-      chatbot.system_prompt || 'You are a helpful assistant.'
-    const tone = chatbot.tone || 'neutral'
-
-    const history = [
-      {
-        role: 'system',
-        content: `${systemPrompt}\nTone: ${tone}.\nUse the provided context when relevant. If the answer is not in the context, reply: "I don’t know based on the documents."`,
-      },
-      {
-        role: 'system',
-        content: `Context:\n${context}`,
-      },
-      ...messages,
+    // ✅ Build system prompt
+    const systemPrompt = [
+      bot.system_prompt || "You are a helpful assistant.",
+      bot.tone ? `Tone: ${bot.tone}` : "",
+      retrievedContext ? `Context:\n${retrievedContext}` : "",
     ]
+      .filter(Boolean)
+      .join("\n\n")
 
-    // ✅ Call OpenAI with history
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: history,
+    // ✅ OpenAI completion
+    const res = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "system", content: systemPrompt }, ...messages],
+      temperature: 0.3,
     })
 
-    const answer =
-      completion.choices[0].message?.content || 'No answer generated.'
+    const answer = res.choices?.[0]?.message?.content ?? ""
+    const totalTokens = res.usage?.total_tokens ?? 0
 
-    return NextResponse.json({ answer, context })
+    // ✅ Enforce plan with actual token count
+    await assertWithinPlanLimit(admin, userId, totalTokens)
+
+    // ✅ Log usage
+    await logUsage(admin, {
+      userId,
+      chatbotId: Number(chatbotId),
+      type: "chat",
+      tokens: totalTokens,
+    })
+
+    return NextResponse.json({
+      answer,
+      usage: res.usage,
+      contextUsed: !!retrievedContext, // helpful for debugging
+    })
   } catch (err: any) {
-    console.error('Chat error:', err.message)
+    console.error("CHAT ERROR:", err.message)
     return NextResponse.json(
-      { error: err.message },
-      { status: 500 }
+      { error: err?.message || "Server error" },
+      { status: err?.status || 500 }
     )
   }
 }
