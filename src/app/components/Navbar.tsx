@@ -21,7 +21,7 @@ export default function Navbar() {
         if (profile?.first_name) {
           setDisplayName(profile.first_name)
         } else {
-          setDisplayName(session.user.email) // fallback
+          setDisplayName(session.user.email ?? null) // fallback
         }
       }
     }
