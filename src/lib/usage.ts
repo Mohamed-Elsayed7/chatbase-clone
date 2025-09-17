@@ -33,13 +33,15 @@ export async function getUserPlan(
     .from("profiles")
     .select("plan")
     .eq("id", userId)
-    .single<ProfileRow>() // 👈 tell TS the shape
+    .single<ProfileRow>() // 👈 typed
 
   if (error) throw error
   return (data?.plan || "free").toLowerCase()
 }
 
 // ✅ Get monthly usage
+type UsageLogRow = { tokens: number | null }
+
 export async function getUserMonthUsage(
   admin: ReturnType<typeof createClient>,
   userId: string
@@ -52,6 +54,7 @@ export async function getUserMonthUsage(
     .eq("user_id", userId)
     .gte("created_at", start.toISOString())
     .lt("created_at", end.toISOString())
+    .returns<UsageLogRow[]>() // 👈 typed
 
   if (error) throw error
   return (data || []).reduce((sum, row) => sum + (row.tokens || 0), 0)
