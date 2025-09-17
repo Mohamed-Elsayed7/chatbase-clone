@@ -17,7 +17,7 @@ export default function ProfilePage() {
     supabase.auth.getSession().then(async ({ data }) => {
       if (data.session) {
         setSession(data.session)
-        setEmail(data.session.user.email)
+        setEmail(data.session.user.email ?? "")
         setCreatedAt(data.session.user.created_at)
         const userId = data.session.user.id
 
