@@ -73,10 +73,11 @@ export async function POST(req: Request) {
         chatbot_id: chatbotIdNum,
         file_id: fileIdNum,
         content: chunk,
-        embedding: vector,
+        embedding: JSON.stringify(vector), // 👈 safe storage
       })
       if (error) throw error
     }
+
 
     // ✅ Log usage
     await logUsage(admin, {
