@@ -30,7 +30,7 @@ export function getCurrentMonthWindow() {
 type ProfileRow = { plan: string | null }
 
 export async function getUserPlan(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient<Database>,
   userId: string
 ) {
   const { data, error } = await admin
@@ -47,7 +47,7 @@ export async function getUserPlan(
 type UsageLogRow = { tokens: number | null }
 
 export async function getUserMonthUsage(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient<Database>,
   userId: string
 ): Promise<number> {
   const { start, end } = getCurrentMonthWindow()
@@ -66,7 +66,7 @@ export async function getUserMonthUsage(
 
 // ✅ Enforce plan limits
 export async function assertWithinPlanLimit(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient<Database>,
   userId: string,
   tokensToAdd: number
 ) {
