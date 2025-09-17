@@ -1,4 +1,5 @@
-import { createClient } from "@supabase/supabase-js"
+import type { Database } from "@/types/supabase"
+import { createClient, SupabaseClient } from "@supabase/supabase-js"
 
 export const PLAN_LIMITS: Record<string, number> = {
   free: 50_000,         // 50k tokens/month
@@ -7,12 +8,15 @@ export const PLAN_LIMITS: Record<string, number> = {
 }
 
 // ✅ Service role client (bypasses RLS)
+// import { Database } from "@/types/supabase" // generated via Supabase CLI
+
 export function getAdminSupabase() {
-  return createClient(
+  return createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
-  ) as any // loosen typing for now
+  )
 }
+
 
 // ✅ Current month window
 export function getCurrentMonthWindow() {
@@ -83,9 +87,11 @@ export async function assertWithinPlanLimit(
   }
 }
 
-// ✅ Log usage
+// type alias for clarity
+type UsageLogInsert = Database["public"]["Tables"]["usage_logs"]["Insert"]
+
 export async function logUsage(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient<Database>, // ✅ now TS knows about usage_logs table
   params: {
     userId: string
     chatbotId?: number | null
@@ -93,12 +99,15 @@ export async function logUsage(
     tokens: number
   }
 ) {
-  const { error } = await admin.from("usage_logs").insert({
+  const row: UsageLogInsert = {
     user_id: params.userId,
     chatbot_id: params.chatbotId ?? null,
     type: params.type,
     tokens: params.tokens,
-  })
+  }
+
+  const { error } = await admin.from("usage_logs").insert(row)
+
   if (error) throw error
 }
 
