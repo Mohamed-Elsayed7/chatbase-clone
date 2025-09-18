@@ -9,6 +9,8 @@ import Sidebar from '../../components/Sidebar'
 import ChatbotFiles from '../ChatbotFiles'
 import ChatPanel from '../ChatPanel'
 import { supabase } from '@/lib/supabaseClient'
+import AnalyticsPanel from './AnalyticsPanel' // 👈 NEW
+
 export default function ChatbotDetail() {
   const params = useParams()
   const searchParams = useSearchParams()
@@ -123,6 +125,17 @@ export default function ChatbotDetail() {
                 <span>💬</span>
                 <span>Chat</span>
               </button>
+              <button
+                onClick={() => router.push(`/dashboard/${chatbotId}?tab=analytics`)}
+                className={`px-4 py-2 rounded-t flex items-center space-x-2 ${
+                  activeTab === 'analytics'
+                    ? 'bg-blue-600 text-white font-semibold'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <span>📊</span>
+                <span>Analytics</span>
+              </button>
             </div>
 
             {/* Back button aligned right */}
@@ -136,98 +149,97 @@ export default function ChatbotDetail() {
 
           {/* Tab Content */}
           {activeTab === 'settings' && (
-          <div className="bg-white shadow p-4 rounded space-y-3">
-            <h2 className="text-lg font-bold mb-2">Chatbot Settings</h2>
-            <input
-              type="text"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              className="w-full border px-3 py-2 rounded"
-              placeholder="Bot name"
-            />
-            <textarea
-              value={editDescription}
-              onChange={(e) => setEditDescription(e.target.value)}
-              className="w-full border px-3 py-2 rounded"
-              placeholder="Description"
-            />
-            <input
-              type="url"
-              value={editWebsite}
-              onChange={(e) => setEditWebsite(e.target.value)}
-              className="w-full border px-3 py-2 rounded"
-              placeholder="Website URL (optional)"
-            />
-            <textarea
-              value={systemPrompt}
-              onChange={(e) => setSystemPrompt(e.target.value)}
-              className="w-full border px-3 py-2 rounded"
-              placeholder="System prompt (default behavior)"
-            />
-            <select
-              value={tone}
-              onChange={(e) => setTone(e.target.value)}
-              className="w-full border px-3 py-2 rounded"
-            >
-              <option value="neutral">Neutral</option>
-              <option value="friendly">Friendly</option>
-              <option value="formal">Formal</option>
-              <option value="professional">Professional</option>
-              <option value="casual">Casual</option>
-            </select>
-            <div className="space-x-2">
-              <button
-                onClick={handleUpdate}
-                className="bg-green-600 text-white px-3 py-1 rounded"
+            <div className="bg-white shadow p-4 rounded space-y-3">
+              <h2 className="text-lg font-bold mb-2">Chatbot Settings</h2>
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="w-full border px-3 py-2 rounded"
+                placeholder="Bot name"
+              />
+              <textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                className="w-full border px-3 py-2 rounded"
+                placeholder="Description"
+              />
+              <input
+                type="url"
+                value={editWebsite}
+                onChange={(e) => setEditWebsite(e.target.value)}
+                className="w-full border px-3 py-2 rounded"
+                placeholder="Website URL (optional)"
+              />
+              <textarea
+                value={systemPrompt}
+                onChange={(e) => setSystemPrompt(e.target.value)}
+                className="w-full border px-3 py-2 rounded"
+                placeholder="System prompt (default behavior)"
+              />
+              <select
+                value={tone}
+                onChange={(e) => setTone(e.target.value)}
+                className="w-full border px-3 py-2 rounded"
               >
-                Save
-              </button>
-              <button
-                onClick={async () => {
-                  const confirmed = window.confirm(
-                    `Delete "${chatbot.name}"? This cannot be undone.`
-                  )
-                  if (!confirmed) return
-                  const { error } = await supabase
-                    .from('chatbots')
-                    .delete()
-                    .eq('id', chatbotId)
-                  if (!error) router.push('/dashboard')
-                }}
-                className="bg-red-600 text-white px-3 py-1 rounded"
-              >
-                Delete
-              </button>
-            </div>
-
-            {/* Embed snippet */}
-            <div className="mt-6">
-              <h3 className="text-sm font-semibold mb-2">Embed Code</h3>
-              <p className="text-xs text-gray-600 mb-2">
-                Copy and paste this code into your website&apos;s HTML to add the chatbot widget.
-              </p>
-
-              <div className="relative">
-                <pre className="bg-gray-800 text-white text-xs p-3 rounded overflow-x-auto pr-12">
-                  {`<script src="${process.env.NEXT_PUBLIC_APP_URL}/embed.js" data-chatbot-id="${chatbotId}" data-chatbot-name="${editName || chatbot.name}"></script>`}
-                </pre>
+                <option value="neutral">Neutral</option>
+                <option value="friendly">Friendly</option>
+                <option value="formal">Formal</option>
+                <option value="professional">Professional</option>
+                <option value="casual">Casual</option>
+              </select>
+              <div className="space-x-2">
                 <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(
-                      `<script src="${process.env.NEXT_PUBLIC_APP_URL}/embed.js" data-chatbot-id="${chatbotId}" data-chatbot-name="${editName || chatbot.name}"></script>`
-                    )
-                    setCopied(true)
-                    setTimeout(() => setCopied(false), 2000) // hide after 2s
-                  }}
-                  className="absolute top-2 right-2 bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded"
+                  onClick={handleUpdate}
+                  className="bg-green-600 text-white px-3 py-1 rounded"
                 >
-                  {copied ? '✅ Copied!' : 'Copy'}
+                  Save
+                </button>
+                <button
+                  onClick={async () => {
+                    const confirmed = window.confirm(
+                      `Delete "${chatbot.name}"? This cannot be undone.`
+                    )
+                    if (!confirmed) return
+                    const { error } = await supabase
+                      .from('chatbots')
+                      .delete()
+                      .eq('id', chatbotId)
+                    if (!error) router.push('/dashboard')
+                  }}
+                  className="bg-red-600 text-white px-3 py-1 rounded"
+                >
+                  Delete
                 </button>
               </div>
-            </div>
-          </div>
-        )}
 
+              {/* Embed snippet */}
+              <div className="mt-6">
+                <h3 className="text-sm font-semibold mb-2">Embed Code</h3>
+                <p className="text-xs text-gray-600 mb-2">
+                  Copy and paste this code into your website&apos;s HTML to add the chatbot widget.
+                </p>
+
+                <div className="relative">
+                  <pre className="bg-gray-800 text-white text-xs p-3 rounded overflow-x-auto pr-12">
+                    {`<script src="${process.env.NEXT_PUBLIC_APP_URL}/embed.js" data-chatbot-id="${chatbotId}" data-chatbot-name="${editName || chatbot.name}"></script>`}
+                  </pre>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(
+                        `<script src="${process.env.NEXT_PUBLIC_APP_URL}/embed.js" data-chatbot-id="${chatbotId}" data-chatbot-name="${editName || chatbot.name}"></script>`
+                      )
+                      setCopied(true)
+                      setTimeout(() => setCopied(false), 2000) // hide after 2s
+                    }}
+                    className="absolute top-2 right-2 bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded"
+                  >
+                    {copied ? '✅ Copied!' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {activeTab === 'files' && (
             <div>
@@ -240,6 +252,13 @@ export default function ChatbotDetail() {
             <div>
               <h2 className="text-lg font-bold mb-2">Chat with {chatbot.name}</h2>
               <ChatPanel chatbotId={chatbotId} />
+            </div>
+          )}
+
+          {activeTab === 'analytics' && (
+            <div>
+              <h2 className="text-lg font-bold mb-2">Analytics</h2>
+              <AnalyticsPanel chatbotId={chatbotId} />
             </div>
           )}
         </main>
