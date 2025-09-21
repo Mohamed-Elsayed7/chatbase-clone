@@ -13,7 +13,7 @@ export async function POST(req: Request) {
       .from('profiles')
       .select('stripe_customer_id')
       .eq('id', userId)
-      .single()
+      .maybeSingle()
 
     if (!profile?.stripe_customer_id) {
       return NextResponse.json({ error: 'Customer not found' }, { status: 404 })

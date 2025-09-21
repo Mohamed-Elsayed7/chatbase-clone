@@ -26,7 +26,7 @@ export default function ProfilePage() {
           .from('profiles')
           .select('*')
           .eq('id', userId)
-          .single()
+          .maybeSingle()
 
         if (profile) {
           setFirstName(profile.first_name || '')

@@ -4,36 +4,44 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
 export default function Navbar() {
-  const [displayName, setDisplayName] = useState<string | null>(null)
+  const [display, setDisplay] = useState<string>('Hello')
 
   useEffect(() => {
-    const loadProfile = async () => {
+    const load = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        const userId = session.user.id
+      if (!session) return
+      const uid = session.user.id
 
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('first_name')
-          .eq('id', userId)
-          .single()
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('first_name, is_superadmin')
+        .eq('id', uid)
+        .maybeSingle()
 
-        if (profile?.first_name) {
-          setDisplayName(profile.first_name)
-        } else {
-          setDisplayName(session.user.email ?? null) // fallback
-        }
+      if (profile?.is_superadmin) {
+        setDisplay(`Hello, ${profile.first_name ?? 'there'} — Super Admin`)
+        return
       }
+
+      // grab first org membership (display one)
+      const { data: mems } = await supabase
+        .from('organization_members')
+        .select('organization_id, organizations(name)')
+        .eq('user_id', uid)
+
+      const orgName = (mems?.[0] as any)?.organizations?.name
+      setDisplay(orgName
+        ? `Hello, ${profile?.first_name ?? 'there'} — ${orgName}`
+        : `Hello, ${profile?.first_name ?? 'there'}`
+      )
     }
-    loadProfile()
+    load()
   }, [])
 
   return (
     <header className="w-full bg-gray-200 p-4 flex justify-between">
       <h1 className="font-bold">Dashboard</h1>
-      <div className="text-sm text-gray-700">
-        {displayName ? `Hello, ${displayName}` : 'Hello'}
-      </div>
+      <div className="text-sm text-gray-700">{display}</div>
     </header>
   )
 }

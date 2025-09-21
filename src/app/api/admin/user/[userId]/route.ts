@@ -9,30 +9,26 @@ export async function GET(
     const supabase = getAdminSupabase()
     const userId = params.userId
 
-    // profile
     const { data: user, error: userErr } = await supabase
       .from("profiles")
-      .select("id, first_name, last_name, plan, created_at, is_admin")
+      .select("id, first_name, last_name, plan, created_at, is_superadmin")
       .eq("id", userId)
-      .single()
+      .maybeSingle()
     if (userErr) throw userErr
 
-    // bots
-    const { data: bots, error: botErr } = await supabase
+    const { data: bots } = await supabase
       .from("chatbots")
-      .select("id, name, created_at")
+      .select("id, name, created_at, organization_id")
       .eq("user_id", userId)
-    if (botErr) throw botErr
+      .order("created_at", { ascending: false })
 
-    // usage
-    const { data: logs, error: logErr } = await supabase
+    const { data: logs } = await supabase
       .from("usage_logs")
-      .select("created_at, type, tokens")
+      .select("tokens, type, created_at")
       .eq("user_id", userId)
-    if (logErr) throw logErr
 
     const usageMap: Record<string, { date: string; tokens: number; chats: number }> = {}
-    for (const row of logs || []) {
+    for (const row of logs ?? []) {
       if (!row.created_at) continue
       const dateKey = new Date(row.created_at as string).toISOString().slice(0, 10)
       if (!usageMap[dateKey]) usageMap[dateKey] = { date: dateKey, tokens: 0, chats: 0 }

@@ -22,7 +22,7 @@ type UserDetail = {
   last_name: string | null
   plan: string
   created_at: string
-  is_admin: boolean
+  is_superadmin: boolean
 }
 
 type Chatbot = {
@@ -61,11 +61,11 @@ export default function AdminUserDetail() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('is_admin')
+        .select('is_superadmin')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
 
-      if (!profile?.is_admin) {
+      if (!profile?.is_superadmin) {
         setError('Forbidden: not an admin')
         setLoading(false)
         return
@@ -115,7 +115,7 @@ export default function AdminUserDetail() {
                 <p><strong>Name:</strong> {user.first_name} {user.last_name}</p>
                 <p><strong>Plan:</strong> {user.plan}</p>
                 <p><strong>Created:</strong> {new Date(user.created_at).toLocaleDateString()}</p>
-                <p><strong>Admin:</strong> {user.is_admin ? '✅' : '—'}</p>
+                <p><strong>Admin:</strong> {user.is_superadmin ? '✅' : '—'}</p>
               </div>
 
               {/* Chatbots */}

@@ -50,7 +50,7 @@ export async function POST(req: Request) {
         file_path: file.name,
       })
       .select("id")
-      .single()
+      .maybeSingle()
     if (fileErr) throw fileErr
 
     // ✅ Generate embeddings with ada-002 (1536 dims)

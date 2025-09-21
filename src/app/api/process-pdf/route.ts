@@ -44,7 +44,7 @@ export async function POST(req: Request) {
       .from("chatbots")
       .select("user_id")
       .eq("id", chatbotIdNum)
-      .single()
+      .maybeSingle()
     if (chatbotError || !chatbot) {
       return NextResponse.json({ error: "Chatbot not found" }, { status: 404 })
     }

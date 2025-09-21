@@ -9,25 +9,15 @@ export async function GET() {
 
     const { data: users, error } = await supabase
       .from("profiles")
-      .select("id, first_name, last_name, plan, created_at, is_admin")
-
+      .select("id, first_name, last_name, plan, created_at, is_superadmin")
     if (error) throw error
 
     const { data: bots } = await supabase.from("chatbots").select("id, user_id")
-    const { data: usage } = await supabase.from("usage_logs").select("user_id, tokens, created_at")
+    const { data: logs } = await supabase.from("usage_logs").select("user_id, tokens, type, created_at")
 
-    const now = new Date()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-
-    const stats = users.map((u) => {
-      const userBots = bots?.filter((b) => b.user_id === u.id) || []
-      const userUsage =
-        usage?.filter(
-          (log) =>
-            log.user_id === u.id &&
-            log.created_at &&
-            new Date(log.created_at) >= startOfMonth
-        ) || []
+    const stats = (users ?? []).map((u) => {
+      const userBots = (bots ?? []).filter(b => b.user_id === u.id)
+      const userUsage = (logs ?? []).filter(l => l.user_id === u.id)
       const totalTokens = userUsage.reduce((sum, l) => sum + (l.tokens || 0), 0)
       return {
         ...u,

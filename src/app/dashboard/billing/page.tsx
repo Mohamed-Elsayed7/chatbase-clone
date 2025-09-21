@@ -15,7 +15,7 @@ export default function BillingPage() {
           .from('profiles')
           .select('plan')
           .eq('id', data.session.user.id)
-          .single()
+          .maybeSingle()
         if (profile?.plan) setPlan(profile.plan)
       }
     })

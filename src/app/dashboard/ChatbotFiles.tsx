@@ -20,7 +20,7 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
       .from('profiles')
       .select('plan')
       .eq('id', userId)
-      .single()
+      .maybeSingle()
     if (profile?.plan) setPlan(profile.plan)
   }
 
@@ -71,7 +71,7 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
       .from('chatbot_files')
       .insert([{ chatbot_id: chatbotId, file_path: filePath }])
       .select()
-      .single()
+      .maybeSingle()
 
     if (dbError) {
       setError(dbError.message)
