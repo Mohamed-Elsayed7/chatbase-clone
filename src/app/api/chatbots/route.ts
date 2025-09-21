@@ -7,8 +7,10 @@ import { getAdminSupabase } from "@/lib/usage"
 
 export const dynamic = "force-dynamic"
 
-function clientFromToken(token: string): SupabaseClient<Database> {
-  return createClient<Database>(
+function clientFromToken(
+  token: string
+): SupabaseClient<Database, "public", "public"> {
+  return createClient<Database, "public", "public">(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -33,7 +35,7 @@ export async function GET(req: Request) {
       const auth = req.headers.get("authorization") || ""
       const m = auth.match(/^Bearer\s+(.+)$/i)
       if (m) {
-        db = clientFromToken(m[1])
+        db = clientFromToken(m[1]) as SupabaseClient<Database, "public", any>
         const r = await db.auth.getUser()
         user = r.data.user ?? null
       }

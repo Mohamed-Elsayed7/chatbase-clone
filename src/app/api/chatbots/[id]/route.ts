@@ -38,7 +38,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       const auth = req.headers.get("authorization") || ""
       const m = auth.match(/^Bearer\s+(.+)$/i)
       if (m) {
-        db = clientFromToken(m[1])
+        db = clientFromToken(m[1]) as SupabaseClient<Database, "public", any>
         const r = await db.auth.getUser()
         user = r.data.user ?? null
       }
