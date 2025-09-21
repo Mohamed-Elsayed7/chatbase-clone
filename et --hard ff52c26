@@ -1,0 +1,72 @@
+[33m74846bd[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mchatbase-clone[m[33m, [m[1;31morigin/chatbase-clone[m[33m)[m HEAD@{0}: reset: moving to HEAD
+[33m74846bd[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mchatbase-clone[m[33m, [m[1;31morigin/chatbase-clone[m[33m)[m HEAD@{1}: commit (merge): Adding Authorization: Bearer <token> to fix 401 non authorized
+[33mff52c26[m HEAD@{2}: commit: Adding Authorization: Bearer <token> to fix 401 non authorized
+[33md8badff[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m HEAD@{3}: reset: moving to origin/main
+[33m6c6cb58[m HEAD@{4}: reset: moving to HEAD
+[33m6c6cb58[m HEAD@{5}: commit: adding organizations and organizations members (super admin is not working)
+[33mc0d6dd4[m HEAD@{6}: commit: wip
+[33m43189bc[m HEAD@{7}: commit: wip
+[33m9477007[m HEAD@{8}: commit: Fixing 401 error outside the local proj
+[33m3b52a18[m HEAD@{9}: commit: Refreshing chat widget info always update
+[33mea1d6cb[m HEAD@{10}: commit (merge): adding chat widget customizations with updatd supabase variables
+[33m3d6addd[m HEAD@{11}: checkout: moving from 65f6ab4ec3cb7b1ed1bd38e11526839279f213ec to chatbase-clone
+[33m65f6ab4[m HEAD@{12}: commit: adding chat widget customizations with updatd supabase variables
+[33m6064000[m HEAD@{13}: pull --rebase origin chatbase-clone (start): checkout 6064000181e791056591bed7d3bdc54bdb158fa5
+[33m3d6addd[m HEAD@{14}: commit: adding chat widget customizations with updatd supabase variables
+[33m33e1f5f[m HEAD@{15}: commit: adding chat widget customizations
+[33md8badff[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m HEAD@{16}: reset: moving to origin/main
+[33m6064000[m HEAD@{17}: reset: moving to HEAD
+[33m6064000[m HEAD@{18}: commit: adding organization and invites
+[33m5c42333[m HEAD@{19}: commit: adding organization and invites
+[33md8badff[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m HEAD@{20}: checkout: moving from main to chatbase-clone
+[33md8badff[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m HEAD@{21}: commit: correcting supabase data types
+[33m86c9527[m HEAD@{22}: commit: Adding admin page and admin column to database
+[33me6edce8[m HEAD@{23}: commit: Refactoring Dashboard page file
+[33m5cfffca[m HEAD@{24}: commit: Adding analytics tab to chatbots
+[33m3eee197[m HEAD@{25}: commit: separating widget code
+[33m2aae1ec[m HEAD@{26}: commit: fixing match_chatbot_chunks type
+[33m9cc28db[m HEAD@{27}: commit: fixing match_chatbot_chunks type
+[33mf301237[m HEAD@{28}: commit: fixing match_chatbot_chunks type
+[33m53fb279[m HEAD@{29}: commit: fixing match_chatbot_chunks
+[33m3aa75eb[m HEAD@{30}: commit: fixing database vector embedding
+[33me92b55c[m HEAD@{31}: commit: fixing database type supabase
+[33m9128bc8[m HEAD@{32}: commit: fixing database type problem in typescript
+[33mf437648[m HEAD@{33}: commit: fixing tokens never type in usage.ts
+[33md66ebd8[m HEAD@{34}: commit: fixing plan string type in usage.ts
+[33m01e3b0f[m HEAD@{35}: commit: fixing user email empty in page.tsx
+[33m19387b9[m HEAD@{36}: commit: fixing session user email null
+[33mf4ab4f0[m HEAD@{37}: commit: fixing stripe api dynamic version
+[33m53ce587[m HEAD@{38}: commit: fixing stripe api dynamic version
+[33m853d532[m HEAD@{39}: commit: fixing adminSupabase in stripe
+[33m46a2c59[m HEAD@{40}: commit: fixing adminSupabase in stripe checkout
+[33m66747d3[m HEAD@{41}: commit: prepare production deploy
+[33m73c1081[m HEAD@{42}: commit: Initial SaaS deploy
+[33m99c83b7[m HEAD@{43}: commit: Initial SaaS deploy
+[33m1865f10[m HEAD@{44}: commit: fixed 403 when uploading third file
+[33m41bfeae[m[33m ([m[1;32mbackup-branch[m[33m)[m HEAD@{45}: reset: moving to origin/main
+[33m41bfeae[m[33m ([m[1;32mbackup-branch[m[33m)[m HEAD@{46}: checkout: moving from backup-branch to main
+[33m41bfeae[m[33m ([m[1;32mbackup-branch[m[33m)[m HEAD@{47}: checkout: moving from main to backup-branch
+[33m41bfeae[m[33m ([m[1;32mbackup-branch[m[33m)[m HEAD@{48}: reset: moving to origin/main
+[33m41bfeae[m[33m ([m[1;32mbackup-branch[m[33m)[m HEAD@{49}: reset: moving to HEAD
+[33m41bfeae[m[33m ([m[1;32mbackup-branch[m[33m)[m HEAD@{50}: reset: moving to origin/main
+[33m41bfeae[m[33m ([m[1;32mbackup-branch[m[33m)[m HEAD@{51}: commit: Implementing stripe payment, not tested
+[33mf46cd11[m HEAD@{52}: commit: Multi-Tenant Support & User Management
+[33mc300256[m HEAD@{53}: commit: Chat widget with external code copy
+[33m5109cb9[m HEAD@{54}: commit: Chat UI with chat history and different tabs
+[33ma8a25d4[m HEAD@{55}: commit: Chat UI with chat history
+[33ma328ba8[m HEAD@{56}: commit: Chat UI + Answer Generation with Context
+[33m28bd86e[m HEAD@{57}: commit: working proj with query to search for question answer
+[33m80e2274[m HEAD@{58}: commit: working proj before adding query quetions
+[33mf5a371d[m HEAD@{59}: commit: working proj before adding delete files and embeddings
+[33mf3d03d3[m HEAD@{60}: commit: feat(pdf): switch to unpdf for Edge-compatible PDF parsing and embedding
+[33m0704d74[m HEAD@{61}: commit: Day 5: embeddings but not working (TXT + PDF)
+[33ma4f6536[m HEAD@{62}: commit: Day 4: Added file upload + website link support
+[33m02cd072[m HEAD@{63}: commit: Added chatbot form and list connected to Supabase
+[33mc3e586c[m HEAD@{64}: Branch: renamed refs/heads/main to refs/heads/main
+[33mc3e586c[m HEAD@{66}: Branch: renamed refs/heads/main to refs/heads/main
+[33mc3e586c[m HEAD@{68}: Branch: renamed refs/heads/main to refs/heads/main
+[33mc3e586c[m HEAD@{70}: Branch: renamed refs/heads/main to refs/heads/main
+[33mc3e586c[m HEAD@{72}: Branch: renamed refs/heads/main to refs/heads/main
+[33mc3e586c[m HEAD@{74}: Branch: renamed refs/heads/main to refs/heads/main
+[33mc3e586c[m HEAD@{76}: Branch: renamed refs/heads/master to refs/heads/main
+[33mc3e586c[m HEAD@{78}: commit (initial): Initial commit with Next.js + Supabase project
