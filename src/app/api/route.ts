@@ -30,7 +30,10 @@ export async function POST(req: Request) {
     const chatbotId = form.get("chatbotId") as string | null
 
     if (!file || !userId || !chatbotId) {
-      return NextResponse.json({ error: "Missing file/userId/chatbotId" }, { status: 400 })
+      return NextResponse.json(
+        { error: "Missing file/userId/chatbotId" },
+        { status: 400 }
+      )
     }
 
     const text = await file.text()
@@ -52,6 +55,10 @@ export async function POST(req: Request) {
       .select("id")
       .maybeSingle()
     if (fileErr) throw fileErr
+
+    if (!fileRow) {
+      throw new Error("Failed to create chatbot_files row")
+    }
 
     // ✅ Generate embeddings with ada-002 (1536 dims)
     const model = "text-embedding-ada-002"
@@ -79,6 +86,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, chunks: chunks.length })
   } catch (err: any) {
     console.error("TXT UPLOAD ERROR:", err.message)
-    return NextResponse.json({ error: err?.message || "Server error" }, { status: err?.status || 500 })
+    return NextResponse.json(
+      { error: err?.message || "Server error" },
+      { status: err?.status || 500 }
+    )
   }
 }
