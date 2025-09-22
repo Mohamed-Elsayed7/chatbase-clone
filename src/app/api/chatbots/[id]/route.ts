@@ -5,7 +5,6 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js"
 import { getAdminSupabase } from "@/lib/usage"
 import type { Database } from "@/types/supabase"
 
-type ChatbotUpdate = Database["public"]["Tables"]["chatbots"]["Update"]
 export const dynamic = "force-dynamic"
 
 function clientFromToken(token: string): SupabaseClient<Database> {
@@ -22,24 +21,6 @@ function clientFromToken(token: string): SupabaseClient<Database> {
   )
 }
 
-async function getUser(req: Request) {
-  const cookieStore = cookies()
-  let db = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
-  let { data: { user } } = await db.auth.getUser()
-
-  if (!user) {
-    const auth = req.headers.get("authorization") || ""
-    const m = auth.match(/^Bearer\s+(.+)$/i)
-    if (m) {
-      db = clientFromToken(m[1]) as SupabaseClient<Database, "public", any>
-      const r = await db.auth.getUser()
-      user = r.data.user ?? null
-    }
-  }
-
-  return { db, user }
-}
-
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
     const id = Number(params.id)
@@ -47,15 +28,35 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ error: "Invalid id" }, { status: 400 })
     }
 
-    const { db, user } = await getUser(req)
-    if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+    // Try cookie-based session first
+    const cookieStore = cookies()
+    let db = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
+    let { data: { user } } = await db.auth.getUser()
 
+    // Fallback: Bearer token
+    if (!user) {
+      const auth = req.headers.get("authorization") || ""
+      const m = auth.match(/^Bearer\s+(.+)$/i)
+      if (m) {
+        db = clientFromToken(m[1]) as SupabaseClient<Database, "public", any>
+        const r = await db.auth.getUser()
+        user = r.data.user ?? null
+      }
+    }
+
+    if (!user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+    }
+
+    // Superadmin bypass via service role
     const admin = getAdminSupabase()
-    const { data: profile } = await admin
+    const { data: profile, error: profileErr } = await admin
       .from("profiles")
       .select("is_superadmin")
       .eq("id", user.id)
       .maybeSingle()
+
+    if (profileErr) throw profileErr
 
     if (profile?.is_superadmin) {
       const { data: chatbot, error } = await admin
@@ -68,12 +69,13 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json(chatbot)
     }
 
-    // Normal user (RLS applies)
+    // Normal user: let RLS enforce access
     const { data: chatbot, error } = await db
       .from("chatbots")
       .select("*")
       .eq("id", id)
       .maybeSingle()
+
     if (error) throw error
     if (!chatbot) return NextResponse.json({ error: "Not found" }, { status: 404 })
     return NextResponse.json(chatbot)
@@ -83,33 +85,58 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   }
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: { id: string } }) {
   try {
     const id = Number(params.id)
     if (!Number.isFinite(id)) {
       return NextResponse.json({ error: "Invalid id" }, { status: 400 })
     }
 
-    const body = (await req.json()) as ChatbotUpdate
-    const { db, user } = await getUser(req)
-    if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+    const cookieStore = cookies()
+    let db = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
+    let { data: { user } } = await db.auth.getUser()
 
+    // Fallback: Bearer token
+    if (!user) {
+      const auth = req.headers.get("authorization") || ""
+      const m = auth.match(/^Bearer\s+(.+)$/i)
+      if (m) {
+        db = clientFromToken(m[1]) as SupabaseClient<Database, "public", any>
+        const r = await db.auth.getUser()
+        user = r.data.user ?? null
+      }
+    }
+
+    if (!user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+    }
+
+    const body = await req.json()
+
+    // Superadmin bypass
     const admin = getAdminSupabase()
-    const { data: profile } = await admin
+    const { data: profile, error: profileErr } = await admin
       .from("profiles")
       .select("is_superadmin")
       .eq("id", user.id)
       .maybeSingle()
 
+    if (profileErr) throw profileErr
+
     if (profile?.is_superadmin) {
-      // Superadmin bypass → service role
-      const { error: updateErr } = await admin.from("chatbots").update(body).eq("id", id)
+      const { error: updateErr } = await admin
+        .from("chatbots")
+        .update(body as any) // 👈 quick bypass
+        .eq("id", id)
       if (updateErr) throw updateErr
       return NextResponse.json({ success: true })
     }
 
     // Normal user (RLS applies)
-    const { error: updateErr } = await db.from("chatbots").update(body).eq("id", id)
+    const { error: updateErr } = await (db as any)
+      .from("chatbots")
+      .update(body) // 👈 quick bypass
+      .eq("id", id)
     if (updateErr) throw updateErr
     return NextResponse.json({ success: true })
   } catch (err: any) {
