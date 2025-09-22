@@ -22,8 +22,8 @@ export default function Sidebar() {
   }, [])
 
   return (
-    <aside className="w-64 border-r p-4">
-      <nav className="space-y-2">
+    <aside className="w-60 h-screen bg-gray-100 border-r p-6">
+      <nav className="flex flex-col gap-4">
         <Link href="/dashboard" className="hover:text-blue-600 font-medium">
           🧩 Chatbots
         </Link>
@@ -34,7 +34,10 @@ export default function Sidebar() {
           💳 Billing
         </Link>
         {isAdmin && (
-          <Link href="/dashboard/admin" className="hover:text-blue-600 font-medium text-red-600">
+          <Link
+            href="/dashboard/admin"
+            className="hover:text-blue-600 font-medium text-red-600"
+          >
             🛠️ Admin
           </Link>
         )}
