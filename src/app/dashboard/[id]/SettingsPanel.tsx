@@ -29,50 +29,53 @@ export default function SettingsPanel({ chatbot, chatbotId, onUpdate }: any) {
 
   const handleUpdate = async () => {
     setSaving(true)
-    const { error } = await supabase
-      .from('chatbots')
-      .update({
-        name: editName,
-        description: editDescription,
-        website_url: editWebsite,
-        system_prompt: systemPrompt,
-        tone,
-        brand_name: brandName || null,
-        widget_theme: theme,
-        widget_primary_color: primary || '#2563eb',
-        widget_logo_url: logoUrl || null,
-        widget_greeting: greeting || '👋 Hi! How can I help you?',
-        widget_position: position,
-        widget_open_by_default: openByDefault,
-      })
-      .eq('id', chatbotId)
 
-    setSaving(false)
-    if (error) {
-      toast.error(`⚠️ ${error.message}`)
-    } else {
-      onUpdate({
-        ...chatbot,
-        name: editName,
-        description: editDescription,
-        website_url: editWebsite,
-        system_prompt: systemPrompt,
-        tone,
-        brand_name: brandName,
-        widget_theme: theme,
-        widget_primary_color: primary,
-        widget_logo_url: logoUrl,
-        widget_greeting: greeting,
-        widget_position: position,
-        widget_open_by_default: openByDefault,
+    const payload = {
+      name: editName,
+      description: editDescription,
+      website_url: editWebsite,
+      system_prompt: systemPrompt,
+      tone,
+      brand_name: brandName || null,
+      widget_theme: theme,
+      widget_primary_color: primary || '#2563eb',
+      widget_logo_url: logoUrl || null,
+      widget_greeting: greeting || '👋 Hi! How can I help you?',
+      widget_position: position,
+      widget_open_by_default: openByDefault,
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+
+      const res = await fetch(`/api/chatbots/${chatbotId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(payload),
       })
+
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Update failed')
+      }
+
+      onUpdate({ ...chatbot, ...payload })
       toast.success('✅ Chatbot settings saved!')
+    } catch (err: any) {
+      toast.error(`⚠️ ${err.message}`)
+    } finally {
+      setSaving(false)
     }
   }
 
   const handleDelete = async () => {
     const confirmed = window.confirm(`Delete "${chatbot.name}"? This cannot be undone.`)
     if (!confirmed) return
+
     const { error } = await supabase.from('chatbots').delete().eq('id', chatbotId)
     if (error) {
       toast.error(`⚠️ ${error.message}`)
