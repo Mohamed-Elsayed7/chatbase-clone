@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server"
 import OpenAI from "openai"
+import { cookies } from "next/headers"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { createClient, SupabaseClient } from "@supabase/supabase-js"
+import type { Database } from "@/types/supabase"
 import { getAdminSupabase, assertWithinPlanLimit, logUsage } from "@/lib/usage"
 
 export const dynamic = "force-dynamic"
@@ -7,6 +11,16 @@ export const dynamic = "force-dynamic"
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 })
+
+function clientFromToken(token: string): SupabaseClient<Database> {
+  return createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    }
+  )
+}
 
 export async function POST(req: Request) {
   try {
@@ -19,10 +33,39 @@ export async function POST(req: Request) {
       )
     }
 
+    // 🔐 Authenticate user (cookie first, then Bearer fallback)
+    const cookieStore = cookies()
+    let db = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
+    let {
+      data: { user },
+    } = await db.auth.getUser()
+
+    if (!user) {
+      const auth = req.headers.get("authorization") || ""
+      const m = auth.match(/^Bearer\s+(.+)$/i)
+      if (m) {
+        db = clientFromToken(m[1]) as SupabaseClient<Database, "public", any>
+        const r = await db.auth.getUser()
+        user = r.data.user ?? null
+      }
+    }
+
+    if (!user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+    }
+
+    // 🔐 Check if superadmin
     const admin = getAdminSupabase()
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("is_superadmin")
+      .eq("id", user.id)
+      .maybeSingle()
+
+    const supabaseClient = profile?.is_superadmin ? admin : db
 
     // ✅ Fetch chatbot settings + userId for usage tracking
-    const { data: bot, error: botErr } = await admin
+    const { data: bot, error: botErr } = await supabaseClient
       .from("chatbots")
       .select("system_prompt, tone, user_id")
       .eq("id", chatbotId)
@@ -70,7 +113,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       answer,
       usage: res.usage,
-      contextUsed: !!retrievedContext, // helpful for debugging
+      contextUsed: !!retrievedContext,
     })
   } catch (err: any) {
     console.error("CHAT ERROR:", err.message)

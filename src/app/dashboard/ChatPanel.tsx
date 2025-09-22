@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { supabase } from '@/lib/supabaseClient'
 
 export default function ChatPanel({ chatbotId }: { chatbotId: number }) {
   const [messages, setMessages] = useState<{ role: string; content: string; time: string }[]>([])
@@ -25,10 +26,19 @@ export default function ChatPanel({ chatbotId }: { chatbotId: number }) {
     setLoading(true)
 
     try {
+      // 🔐 Get Supabase token
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      }
+
       // 1️⃣ Query embeddings to get context
       const queryRes = await fetch('/api/query', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
+        credentials: 'include',
         body: JSON.stringify({
           chatbotId,
           query: input, // latest user question
@@ -43,7 +53,8 @@ export default function ChatPanel({ chatbotId }: { chatbotId: number }) {
       // 2️⃣ Call chat with context
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
+        credentials: 'include',
         body: JSON.stringify({
           chatbotId,
           messages: newMessages.map(m => ({ role: m.role, content: m.content })), // strip timestamps
@@ -61,7 +72,11 @@ export default function ChatPanel({ chatbotId }: { chatbotId: number }) {
     } catch (e: any) {
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: 'Error: ' + e.message, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) },
+        {
+          role: 'assistant',
+          content: 'Error: ' + e.message,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
       ])
     } finally {
       setLoading(false)
