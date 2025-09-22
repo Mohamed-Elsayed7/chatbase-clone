@@ -63,7 +63,7 @@ export async function POST(req: Request) {
     const supabaseClient = profile?.is_superadmin ? admin : db
 
     // ✅ Fetch chatbot to get userId
-    const { data: bot, error: botErr } = await supabaseClient
+    const { data: bot, error: botErr } = await (supabaseClient as any)
       .from("chatbots")
       .select("user_id")
       .eq("id", chatbotId)
