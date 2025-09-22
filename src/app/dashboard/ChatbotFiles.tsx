@@ -25,23 +25,20 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
   }
 
   const fetchFiles = async () => {
-    const { data, error } = await supabase
-      .from('chatbot_files')
-      .select('*')
-      .eq('chatbot_id', chatbotId)
-      .order('created_at', { ascending: false })
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
 
-    if (!error && data) {
-      // Attach signed URL for each file
-      const filesWithUrls = await Promise.all(
-        data.map(async (f) => {
-          const { data: urlData } = await supabase.storage
-            .from('chatbot-files')
-            .createSignedUrl(f.file_path, 60 * 60) // 1 hour expiry
-          return { ...f, signedUrl: urlData?.signedUrl }
-        })
-      )
-      setFiles(filesWithUrls)
+      const res = await fetch(`/api/chatbot-files/${chatbotId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: 'include',
+      })
+      if (!res.ok) throw new Error(`Failed to fetch files (${res.status})`)
+      const json = await res.json()
+      setFiles(json.files || [])
+    } catch (err: any) {
+      console.error('Failed to fetch files:', err.message)
+      setError(err.message)
     }
   }
 
@@ -66,7 +63,7 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
       return
     }
 
-    // 2. Insert metadata into chatbot_files table and get fileId
+    // 2. Insert metadata into chatbot_files table
     const { data: fileData, error: dbError } = await supabase
       .from('chatbot_files')
       .insert([{ chatbot_id: chatbotId, file_path: filePath }])
@@ -81,7 +78,7 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
 
     const fileId = fileData.id
 
-    // 3. Process file → embeddings (local functions)
+    // 3. Process file → embeddings
     try {
       if (ext === 'txt') {
         await processTxtFile(chatbotId, file, fileId)
@@ -101,34 +98,33 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
     e.target.value = '' // reset input
   }
 
-  const handleDeleteFile = async (file: any) => {
-    const confirmed = window.confirm(`Delete file "${file.file_path.split('/').pop()}" and its embeddings?`)
-    if (!confirmed) return
+const handleDeleteFile = async (file: any) => {
+  const confirmed = window.confirm(
+    `Delete file "${file.file_path.split('/').pop()}" and its embeddings?`
+  )
+  if (!confirmed) return
 
-    // 1. Remove from Supabase Storage
-    const { error: storageError } = await supabase.storage
-      .from('chatbot-files')
-      .remove([file.file_path])
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
 
-    if (storageError) {
-      setError(storageError.message)
-      return
+    const res = await fetch(`/api/chatbot-files/file/${file.id}`, {
+      method: 'DELETE',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      credentials: 'include',
+    })
+
+    if (!res.ok) {
+      const err = await res.json()
+      throw new Error(err.error || `Failed with status ${res.status}`)
     }
 
-    // 2. Remove from chatbot_files (embeddings cascade automatically)
-    const { error: dbError } = await supabase
-      .from('chatbot_files')
-      .delete()
-      .eq('id', file.id)
-
-    if (dbError) {
-      setError(dbError.message)
-      return
-    }
-
-    // 3. Update UI
     setFiles(files.filter((f) => f.id !== file.id))
+  } catch (err: any) {
+    setError(err.message)
   }
+}
+
 
   const limitReached = plan === 'free' && files.length >= 3
 
@@ -155,7 +151,6 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
             key={f.id}
             className="flex justify-between items-center text-sm text-gray-600 border-b pb-1"
           >
-            {/* Filename as clickable link */}
             <a
               href={f.signedUrl || '#'}
               target="_blank"
