@@ -73,7 +73,7 @@ export async function POST(req: Request) {
     const supabaseClient = profile?.is_superadmin ? admin : db
 
     // ✅ Ensure chatbot exists and is accessible
-    const { data: bot, error: botErr } = await supabaseClient
+    const { data: bot, error: botErr } = await (supabaseClient as any)
       .from("chatbots")
       .select("id, user_id")
       .eq("id", chatbotId)
