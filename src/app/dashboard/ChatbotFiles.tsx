@@ -8,7 +8,7 @@ import toast from 'react-hot-toast'
 export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number, userId: string }) {
   const [uploading, setUploading] = useState(false)
   const [files, setFiles] = useState<any[]>([])
-  const [plan, setPlan] = useState<string>('free') // track plan
+  const [plan, setPlan] = useState<string>('free')
 
   useEffect(() => {
     fetchFiles()
@@ -37,12 +37,12 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
       const json = await res.json()
       setFiles(json.files || [])
     } catch (err: any) {
-      toast.error(`⚠️ Failed to fetch files: ${err.message}`)
+      toast.error(`⚠️ ${err.message}`)
     }
   }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return
+    if (!e.target.files?.length) return
     const file = e.target.files[0]
     const ext = file.name.split('.').pop()?.toLowerCase()
 
@@ -74,23 +74,21 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
       } else if (ext === 'pdf') {
         await processPdfFile(chatbotId, file, fileId)
       } else {
-        toast.error('❌ Unsupported file type (only .txt or .pdf allowed)')
+        toast('ℹ️ File uploaded but no embeddings created (unsupported type).')
       }
 
-      toast.success(`✅ Uploaded & processed ${file.name}`)
+      toast.success('✅ File uploaded & processed')
       fetchFiles()
     } catch (err: any) {
-      toast.error(`⚠️ Upload failed: ${err.message}`)
+      toast.error(`⚠️ ${err.message}`)
     } finally {
       setUploading(false)
-      e.target.value = '' // reset input
+      e.target.value = ''
     }
   }
 
   const handleDeleteFile = async (file: any) => {
-    const confirmed = window.confirm(
-      `Delete file "${file.file_path.split('/').pop()}" and its embeddings?`
-    )
+    const confirmed = window.confirm(`Delete "${file.file_path.split('/').pop()}"?`)
     if (!confirmed) return
 
     try {
@@ -109,9 +107,9 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
       }
 
       setFiles(files.filter((f) => f.id !== file.id))
-      toast.success(`🗑️ Deleted ${file.file_path.split('/').pop()}`)
+      toast.success('🗑️ File deleted')
     } catch (err: any) {
-      toast.error(`⚠️ Delete failed: ${err.message}`)
+      toast.error(`⚠️ ${err.message}`)
     }
   }
 
@@ -126,7 +124,6 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
         disabled={limitReached || uploading}
         className={limitReached ? 'opacity-50 cursor-not-allowed' : ''}
       />
-      {uploading && <p className="text-blue-600">Uploading & processing…</p>}
       {limitReached && (
         <p className="text-red-600 mt-2">
           Free plan limit reached (3 files). Upgrade to Pro to upload more.
