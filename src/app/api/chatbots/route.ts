@@ -28,7 +28,9 @@ export async function GET(req: Request) {
     // Cookie-based first
     const cookieStore = cookies()
     let db = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
-    let { data: { user } } = await db.auth.getUser()
+    let {
+      data: { user },
+    } = await db.auth.getUser()
 
     // Bearer fallback
     if (!user) {
@@ -51,28 +53,53 @@ export async function GET(req: Request) {
       .select("is_superadmin")
       .eq("id", user.id)
       .maybeSingle()
-    if (profileErr) throw profileErr
+
+    if (profileErr) {
+      console.error("Supabase profile fetch error:", profileErr)
+      return NextResponse.json(
+        { error: "Failed to verify profile" },
+        { status: 500 }
+      )
+    }
 
     // Superadmin → all chatbots
     if (profile?.is_superadmin) {
-      const { data: chatbots, error } = await admin
+      const { data: chatbots, error: botsError } = await admin
         .from("chatbots")
         .select("*")
         .order("created_at", { ascending: false })
-      if (error) throw error
-      return NextResponse.json({ chatbots })
+
+      if (botsError) {
+        console.error("Supabase chatbots fetch error (admin):", botsError)
+        return NextResponse.json(
+          { error: "Failed to load chatbots" },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({ chatbots: chatbots ?? [] })
     }
 
     // Normal user → RLS restricts to own/org chatbots
-    const { data: chatbots, error } = await db
+    const { data: chatbots, error: botsError } = await db
       .from("chatbots")
       .select("*")
       .order("created_at", { ascending: false })
-    if (error) throw error
+
+    if (botsError) {
+      console.error("Supabase chatbots fetch error (user):", botsError)
+      return NextResponse.json(
+        { error: "Failed to load chatbots" },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({ chatbots: chatbots ?? [] })
   } catch (err: any) {
-    console.error("CHATBOTS GET ERROR:", err?.message || err)
-    return NextResponse.json({ error: err?.message || "Server error" }, { status: 500 })
+    console.error("CHATBOTS GET ERROR (unhandled):", err)
+    return NextResponse.json(
+      { error: "Something went wrong while loading chatbots" },
+      { status: 500 }
+    )
   }
 }

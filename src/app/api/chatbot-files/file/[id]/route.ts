@@ -66,8 +66,11 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     if (delErr) throw delErr
 
     return NextResponse.json({ success: true })
-  } catch (err: any) {
-    console.error("chatbot-files DELETE error:", err.message)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+  }  catch (err: any) {
+    console.error("FILE DELETE ERROR:", err)
+    return NextResponse.json(
+      { error: "Failed to delete file" },
+      { status: 500 }
+    )
   }
 }

@@ -107,7 +107,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, chunks: chunks.length })
   } catch (err: any) {
-    console.error("Embedding API error:", err.message)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    console.error("EMBED ERROR:", err)
+    return NextResponse.json(
+      { error: "Something went wrong while creating embeddings" },
+      { status: 500 }
+    )
   }
 }

@@ -134,10 +134,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, chunks: chunks.length })
   } catch (err: any) {
-    console.error("PDF processing error:", err.message)
+    console.error("PROCESS-PDF ERROR:", err)
     return NextResponse.json(
-      { error: err?.message || "Server error" },
-      { status: err?.status || 500 }
+      { error: "Something went wrong while processing PDF" },
+      { status: 500 }
     )
   }
 }

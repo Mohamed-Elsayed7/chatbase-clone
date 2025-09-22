@@ -26,6 +26,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ url: portal.url })
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
-  }
+  console.error("STRIPE ERROR:", err)
+  return NextResponse.json(
+    { error: "Stripe request failed" },
+    { status: 500 }
+  )
 }

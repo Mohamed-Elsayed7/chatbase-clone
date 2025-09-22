@@ -63,13 +63,13 @@ export async function POST(req: Request) {
     const supabaseClient = profile?.is_superadmin ? admin : db
 
     // ✅ Fetch chatbot to get userId
-    const { data: bot, error: botErr } = await (supabaseClient as any)
+    const { data: bot } = await (supabaseClient as any)
       .from("chatbots")
       .select("user_id")
       .eq("id", chatbotId)
       .maybeSingle()
 
-    if (botErr || !bot) {
+    if (!bot) {
       return NextResponse.json({ error: "Chatbot not found" }, { status: 404 })
     }
     const userId = bot.user_id
@@ -91,7 +91,10 @@ export async function POST(req: Request) {
       p_match_count: matchCount,
     })
 
-    if (error) throw error
+    if (error) {
+      console.error("DB RPC error:", error) // log server-side only
+      return NextResponse.json({ error: "Vector search failed" }, { status: 500 })
+    }
 
     // ✅ Log query
     await logUsage(admin, {
@@ -103,10 +106,13 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ matches: data || [] })
   } catch (err: any) {
-    console.error("QUERY ERROR:", err.message)
+    // Log full error internally
+    console.error("QUERY ERROR:", err)
+
+    // Return sanitized error to client
     return NextResponse.json(
-      { error: err?.message || "Server error" },
-      { status: err?.status || 500 }
+      { error: "Something went wrong while processing your request" },
+      { status: 500 }
     )
   }
 }

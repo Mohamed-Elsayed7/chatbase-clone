@@ -38,8 +38,11 @@ export async function GET(
     const usageOverTime = Object.values(usageMap).sort((a, b) => a.date.localeCompare(b.date))
 
     return NextResponse.json({ user, bots, usageOverTime })
-  } catch (err: any) {
-    console.error("ADMIN USER ERROR:", err?.message || err)
-    return NextResponse.json({ error: err?.message || "Server error" }, { status: 500 })
+  }  catch (err: any) {
+    console.error("ADMIN USER ERROR:", err)
+    return NextResponse.json(
+      { error: "Failed to load user data" },
+      { status: 500 }
+    )
   }
 }

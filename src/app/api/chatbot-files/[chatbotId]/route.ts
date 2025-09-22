@@ -73,8 +73,11 @@ export async function GET(req: Request, { params }: { params: { chatbotId: strin
 
     return NextResponse.json({ files: filesWithUrls })
   } catch (err: any) {
-    console.error("chatbot-files GET error:", err.message)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    console.error("CHATBOT-FILES GET ERROR:", err)
+    return NextResponse.json(
+      { error: "Failed to load files" },
+      { status: 500 }
+    )
   }
 }
 
@@ -103,7 +106,10 @@ export async function POST(req: Request, { params }: { params: { chatbotId: stri
 
     return NextResponse.json({ file: data })
   } catch (err: any) {
-    console.error("chatbot-files POST error:", err.message)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    console.error("CHATBOT-FILES POST ERROR:", err)
+    return NextResponse.json(
+      { error: "Failed to save file" },
+      { status: 500 }
+    )
   }
 }

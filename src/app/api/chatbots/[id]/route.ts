@@ -80,11 +80,13 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     if (!chatbot) return NextResponse.json({ error: "Not found" }, { status: 404 })
     return NextResponse.json(chatbot)
   } catch (err: any) {
-    console.error("CHATBOT DETAIL ERROR:", err?.message || err)
-    return NextResponse.json({ error: err?.message || "Server error" }, { status: 500 })
+    console.error("CHATBOT GET ERROR:", err)
+    return NextResponse.json(
+      { error: "Failed to load chatbot" },
+      { status: 500 }
+    )
   }
 }
-
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   try {
     const id = Number(params.id)
@@ -140,7 +142,10 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     if (updateErr) throw updateErr
     return NextResponse.json({ success: true })
   } catch (err: any) {
-    console.error("CHATBOT UPDATE ERROR:", err?.message || err)
-    return NextResponse.json({ error: err?.message || "Server error" }, { status: 500 })
+    console.error("CHATBOT PUT ERROR:", err)
+    return NextResponse.json(
+      { error: "Failed to update chatbot" },
+      { status: 500 }
+    )
   }
 }

@@ -58,7 +58,10 @@ export async function GET(
       usageOverTime,
     })
   } catch (err: any) {
-    console.error("ANALYTICS ERROR:", err?.message || err)
-    return NextResponse.json({ error: err?.message || "Server error" }, { status: 500 })
+    console.error("ANALYTICS ERROR:", err)
+    return NextResponse.json(
+      { error: "Failed to load analytics" },
+      { status: 500 }
+    )
   }
 }

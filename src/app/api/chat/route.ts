@@ -116,10 +116,10 @@ export async function POST(req: Request) {
       contextUsed: !!retrievedContext,
     })
   } catch (err: any) {
-    console.error("CHAT ERROR:", err.message)
+    console.error("CHAT ERROR:", err)
     return NextResponse.json(
-      { error: err?.message || "Server error" },
-      { status: err?.status || 500 }
+      { error: "Something went wrong while processing chat" },
+      { status: 500 }
     )
   }
 }
