@@ -15,6 +15,36 @@ function clientFromToken(token: string): SupabaseClient<Database> {
   )
 }
 
+async function getUserAndClient(req: Request) {
+  const cookieStore = cookies()
+  let db = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
+  let { data: { user } } = await db.auth.getUser()
+
+  if (!user) {
+    const auth = req.headers.get("authorization") || ""
+    const m = auth.match(/^Bearer\s+(.+)$/i)
+    if (m) {
+      db = clientFromToken(m[1]) as SupabaseClient<Database, "public", any>
+      const r = await db.auth.getUser()
+      user = r.data.user ?? null
+    }
+  }
+  if (!user) throw new Error("Not authenticated")
+
+  const admin = getAdminSupabase()
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("is_superadmin")
+    .eq("id", user.id)
+    .maybeSingle()
+
+  
+const supabaseClient = (profile?.is_superadmin ? admin : db) as SupabaseClient<Database>
+
+  return { user, supabaseClient, admin }
+}
+
+// ✅ GET → list files for a chatbot
 export async function GET(req: Request, { params }: { params: { chatbotId: string } }) {
   try {
     const chatbotId = Number(params.chatbotId)
@@ -22,29 +52,7 @@ export async function GET(req: Request, { params }: { params: { chatbotId: strin
       return NextResponse.json({ error: "Invalid chatbotId" }, { status: 400 })
     }
 
-    // authenticate
-    const cookieStore = cookies()
-    let db = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
-    let { data: { user } } = await db.auth.getUser()
-    if (!user) {
-      const auth = req.headers.get("authorization") || ""
-      const m = auth.match(/^Bearer\s+(.+)$/i)
-      if (m) {
-        db = clientFromToken(m[1]) as SupabaseClient<Database, "public", any>
-        const r = await db.auth.getUser()
-        user = r.data.user ?? null
-      }
-    }
-    if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-
-    const admin = getAdminSupabase()
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("is_superadmin")
-      .eq("id", user.id)
-      .maybeSingle()
-
-    const supabaseClient = (profile?.is_superadmin ? admin : db) as SupabaseClient<Database>
+    const { supabaseClient, admin } = await getUserAndClient(req)
 
     const { data: files, error: filesErr } = await supabaseClient
       .from("chatbot_files")
@@ -66,6 +74,36 @@ export async function GET(req: Request, { params }: { params: { chatbotId: strin
     return NextResponse.json({ files: filesWithUrls })
   } catch (err: any) {
     console.error("chatbot-files GET error:", err.message)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+// ✅ POST → insert metadata for a file (after uploading to storage)
+export async function POST(req: Request, { params }: { params: { chatbotId: string } }) {
+  try {
+    const chatbotId = Number(params.chatbotId)
+    if (!Number.isFinite(chatbotId)) {
+      return NextResponse.json({ error: "Invalid chatbotId" }, { status: 400 })
+    }
+
+    const { supabaseClient } = await getUserAndClient(req)
+
+    const { filePath } = await req.json()
+    if (!filePath) {
+      return NextResponse.json({ error: "Missing filePath" }, { status: 400 })
+    }
+
+    const { data, error } = await supabaseClient
+      .from("chatbot_files")
+      .insert([{ chatbot_id: chatbotId, file_path: filePath }])
+      .select()
+      .maybeSingle()
+
+    if (error) throw error
+
+    return NextResponse.json({ file: data })
+  } catch (err: any) {
+    console.error("chatbot-files POST error:", err.message)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

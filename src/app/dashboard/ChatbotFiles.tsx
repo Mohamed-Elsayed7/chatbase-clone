@@ -8,7 +8,7 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [files, setFiles] = useState<any[]>([])
-  const [plan, setPlan] = useState<string>('free') // track plan
+  const [plan, setPlan] = useState<string>('free')
 
   useEffect(() => {
     fetchFiles()
@@ -52,7 +52,7 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
 
     const filePath = `${userId}/${chatbotId}/${file.name}`
 
-    // 1. Upload file to Supabase Storage
+    // 1. Upload to Supabase Storage
     const { error: uploadError } = await supabase.storage
       .from('chatbot-files')
       .upload(filePath, file, { upsert: true })
@@ -63,23 +63,30 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
       return
     }
 
-    // 2. Insert metadata into chatbot_files table
-    const { data: fileData, error: dbError } = await supabase
-      .from('chatbot_files')
-      .insert([{ chatbot_id: chatbotId, file_path: filePath }])
-      .select()
-      .maybeSingle()
-
-    if (dbError) {
-      setError(dbError.message)
-      setUploading(false)
-      return
-    }
-
-    const fileId = fileData.id
-
-    // 3. Process file → embeddings
+    // 2. Insert metadata via API (superadmin bypass supported)
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+
+      const res = await fetch(`/api/chatbot-files/${chatbotId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: 'include',
+        body: JSON.stringify({ filePath }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || `Failed to insert metadata (${res.status})`)
+      }
+
+      const { file: fileData } = await res.json()
+      const fileId = fileData.id
+
+      // 3. Process embeddings
       if (ext === 'txt') {
         await processTxtFile(chatbotId, file, fileId)
       } else if (ext === 'pdf') {
@@ -98,33 +105,32 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
     e.target.value = '' // reset input
   }
 
-const handleDeleteFile = async (file: any) => {
-  const confirmed = window.confirm(
-    `Delete file "${file.file_path.split('/').pop()}" and its embeddings?`
-  )
-  if (!confirmed) return
+  const handleDeleteFile = async (file: any) => {
+    const confirmed = window.confirm(
+      `Delete file "${file.file_path.split('/').pop()}" and its embeddings?`
+    )
+    if (!confirmed) return
 
-  try {
-    const { data: { session } } = await supabase.auth.getSession()
-    const token = session?.access_token
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
 
-    const res = await fetch(`/api/chatbot-files/file/${file.id}`, {
-      method: 'DELETE',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      credentials: 'include',
-    })
+      const res = await fetch(`/api/chatbot-files/file/${file.id}`, {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: 'include',
+      })
 
-    if (!res.ok) {
-      const err = await res.json()
-      throw new Error(err.error || `Failed with status ${res.status}`)
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || `Failed with status ${res.status}`)
+      }
+
+      setFiles(files.filter((f) => f.id !== file.id))
+    } catch (err: any) {
+      setError(err.message)
     }
-
-    setFiles(files.filter((f) => f.id !== file.id))
-  } catch (err: any) {
-    setError(err.message)
   }
-}
-
 
   const limitReached = plan === 'free' && files.length >= 3
 
