@@ -5,6 +5,7 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js"
 import { getAdminSupabase } from "@/lib/usage"
 import type { Database } from "@/types/supabase"
 
+type ChatbotUpdate = Database["public"]["Tables"]["chatbots"]["Update"]
 export const dynamic = "force-dynamic"
 
 function clientFromToken(token: string): SupabaseClient<Database> {
@@ -89,7 +90,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       return NextResponse.json({ error: "Invalid id" }, { status: 400 })
     }
 
-    const body = await req.json()
+    const body = (await req.json()) as ChatbotUpdate
     const { db, user } = await getUser(req)
     if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
