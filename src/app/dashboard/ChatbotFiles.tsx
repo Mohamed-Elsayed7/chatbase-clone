@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react'
 import { processTxtFile, processPdfFile } from '@/lib/fileProcessor'
 import { supabase } from '@/lib/supabaseClient'
+import toast from 'react-hot-toast'
 
 export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number, userId: string }) {
   const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [files, setFiles] = useState<any[]>([])
-  const [plan, setPlan] = useState<string>('free')
+  const [plan, setPlan] = useState<string>('free') // track plan
 
   useEffect(() => {
     fetchFiles()
@@ -37,8 +37,7 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
       const json = await res.json()
       setFiles(json.files || [])
     } catch (err: any) {
-      console.error('Failed to fetch files:', err.message)
-      setError(err.message)
+      toast.error(`⚠️ Failed to fetch files: ${err.message}`)
     }
   }
 
@@ -48,61 +47,44 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
     const ext = file.name.split('.').pop()?.toLowerCase()
 
     setUploading(true)
-    setError(null)
 
-    const filePath = `${userId}/${chatbotId}/${file.name}`
+    const filePath = `${chatbotId}/${file.name}`
 
-    // 1. Upload to Supabase Storage
-    const { error: uploadError } = await supabase.storage
-      .from('chatbot-files')
-      .upload(filePath, file, { upsert: true })
-
-    if (uploadError) {
-      setError(uploadError.message)
-      setUploading(false)
-      return
-    }
-
-    // 2. Insert metadata via API (superadmin bypass supported)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const token = session?.access_token
+      // 1. Upload file to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('chatbot-files')
+        .upload(filePath, file, { upsert: true })
 
-      const res = await fetch(`/api/chatbot-files/${chatbotId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        credentials: 'include',
-        body: JSON.stringify({ filePath }),
-      })
+      if (uploadError) throw uploadError
 
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || `Failed to insert metadata (${res.status})`)
-      }
+      // 2. Insert metadata into chatbot_files table
+      const { data: fileData, error: dbError } = await supabase
+        .from('chatbot_files')
+        .insert([{ chatbot_id: chatbotId, file_path: filePath }])
+        .select()
+        .maybeSingle()
 
-      const { file: fileData } = await res.json()
+      if (dbError) throw dbError
       const fileId = fileData.id
 
-      // 3. Process embeddings
+      // 3. Process file → embeddings
       if (ext === 'txt') {
         await processTxtFile(chatbotId, file, fileId)
       } else if (ext === 'pdf') {
         await processPdfFile(chatbotId, file, fileId)
       } else {
-        console.warn('Unsupported file type for embeddings:', ext)
+        toast.error('❌ Unsupported file type (only .txt or .pdf allowed)')
       }
-    } catch (err: any) {
-      console.error('Embedding error:', err.message)
-      setError(`Embedding error: ${err.message}`)
-    }
 
-    // 4. Refresh UI
-    fetchFiles()
-    setUploading(false)
-    e.target.value = '' // reset input
+      toast.success(`✅ Uploaded & processed ${file.name}`)
+      fetchFiles()
+    } catch (err: any) {
+      toast.error(`⚠️ Upload failed: ${err.message}`)
+    } finally {
+      setUploading(false)
+      e.target.value = '' // reset input
+    }
   }
 
   const handleDeleteFile = async (file: any) => {
@@ -127,8 +109,9 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
       }
 
       setFiles(files.filter((f) => f.id !== file.id))
+      toast.success(`🗑️ Deleted ${file.file_path.split('/').pop()}`)
     } catch (err: any) {
-      setError(err.message)
+      toast.error(`⚠️ Delete failed: ${err.message}`)
     }
   }
 
@@ -143,8 +126,7 @@ export default function ChatbotFiles({ chatbotId, userId }: { chatbotId: number,
         disabled={limitReached || uploading}
         className={limitReached ? 'opacity-50 cursor-not-allowed' : ''}
       />
-      {uploading && <p className="text-blue-600">Uploading & processing...</p>}
-      {error && <p className="text-red-600">{error}</p>}
+      {uploading && <p className="text-blue-600">Uploading & processing…</p>}
       {limitReached && (
         <p className="text-red-600 mt-2">
           Free plan limit reached (3 files). Upgrade to Pro to upload more.

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import toast from 'react-hot-toast'
 
 export default function ChatPanel({ chatbotId }: { chatbotId: number }) {
   const [messages, setMessages] = useState<{ role: string; content: string; time: string }[]>([])
@@ -26,58 +27,55 @@ export default function ChatPanel({ chatbotId }: { chatbotId: number }) {
     setLoading(true)
 
     try {
-      // 🔐 Get Supabase token
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      }
 
-      // 1️⃣ Query embeddings to get context
+      // 1️⃣ Query embeddings
       const queryRes = await fetch('/api/query', {
         method: 'POST',
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         credentials: 'include',
         body: JSON.stringify({
           chatbotId,
-          query: input, // latest user question
+          query: input,
         }),
       })
+      if (!queryRes.ok) throw new Error(`Query failed (${queryRes.status})`)
       const queryData = await queryRes.json()
 
       const context = (queryData.matches || [])
         .map((m: any) => m.content)
         .join('\n\n')
 
-      // 2️⃣ Call chat with context
+      // 2️⃣ Call chat API
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         credentials: 'include',
         body: JSON.stringify({
           chatbotId,
-          messages: newMessages.map(m => ({ role: m.role, content: m.content })), // strip timestamps
+          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
           retrievedContext: context,
         }),
       })
 
+      if (!res.ok) throw new Error(`Chat failed (${res.status})`)
       const data = await res.json()
+
       const botMsg = {
         role: 'assistant',
-        content: data.answer || 'Error: no answer.',
+        content: data.answer || 'No answer returned.',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       }
       setMessages(prev => [...prev, botMsg])
     } catch (e: any) {
-      setMessages(prev => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: 'Error: ' + e.message,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        },
-      ])
+      toast.error(`⚠️ ${e.message}`)
     } finally {
       setLoading(false)
     }
