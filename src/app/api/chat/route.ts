@@ -62,7 +62,7 @@ export async function POST(req: Request) {
       .eq("id", user.id)
       .maybeSingle()
 
-    const supabaseClient = profile?.is_superadmin ? admin : db
+    const supabaseClient = getAdminSupabase() as SupabaseClient<Database, "public">
 
     // ✅ Fetch chatbot settings + userId for usage tracking
     const { data: bot, error: botErr } = await supabaseClient
