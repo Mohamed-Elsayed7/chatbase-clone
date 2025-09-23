@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from "react"
 
 export default function WidgetClient() {
   const searchParams = useSearchParams()
-  const chatbotId = searchParams.get("chatbotId")
+  const chatbotKey = searchParams.get("chatbotKey") // ✅ now using public key
   const chatbotName = searchParams.get("chatbotName") || "Chatbot"
 
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([
@@ -20,7 +20,7 @@ export default function WidgetClient() {
   }, [messages])
 
   const sendMessage = async () => {
-    if (!input.trim()) return
+    if (!input.trim() || !chatbotKey) return
     const newMsg = { role: "user", content: input }
     setMessages([...messages, newMsg])
     setInput("")
@@ -30,12 +30,25 @@ export default function WidgetClient() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chatbotId: Number(chatbotId), messages: [...messages, newMsg] }),
+        body: JSON.stringify({
+          chatbotKey, // ✅ send key instead of numeric id
+          messages: [...messages, newMsg],
+        }),
       })
       const data = await res.json()
-      setMessages((prev) => [...prev, { role: "assistant", content: data.answer }])
+      if (res.ok && data.answer) {
+        setMessages((prev) => [...prev, { role: "assistant", content: data.answer }])
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: data.error || "⚠️ Error fetching response" },
+        ])
+      }
     } catch (e: any) {
-      setMessages((prev) => [...prev, { role: "assistant", content: "⚠️ Error: " + e.message }])
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "⚠️ Error: " + e.message },
+      ])
     } finally {
       setLoading(false)
     }

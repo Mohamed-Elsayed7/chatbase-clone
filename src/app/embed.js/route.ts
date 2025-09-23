@@ -1,14 +1,13 @@
-import { NextResponse } from 'next/server'
+import { NextResponse } from "next/server"
 
 export async function GET() {
   const js = `
     (function() {
       var scriptTag = document.currentScript
-      var chatbotId = scriptTag.getAttribute("data-chatbot-id")
+      var chatbotKey = scriptTag.getAttribute("data-chatbot-key")
       var chatbotName = scriptTag.getAttribute("data-chatbot-name") || "Chatbot"
-      if (!chatbotId) return
+      if (!chatbotKey) return
 
-      // Floating toggle button
       var button = document.createElement("div")
       button.innerHTML = "💬"
       button.style.position = "fixed"
@@ -27,9 +26,8 @@ export async function GET() {
       button.style.boxShadow = "0 4px 10px rgba(0,0,0,0.2)"
       button.style.zIndex = "999998"
 
-      // Iframe widget
       var iframe = document.createElement("iframe")
-      iframe.src = "${process.env.NEXT_PUBLIC_APP_URL}/widget?chatbotId=" + chatbotId + "&chatbotName=" + encodeURIComponent(chatbotName)
+      iframe.src = "${process.env.NEXT_PUBLIC_APP_URL}/widget?chatbotKey=" + chatbotKey + "&chatbotName=" + encodeURIComponent(chatbotName)
       iframe.style.position = "fixed"
       iframe.style.bottom = "80px"
       iframe.style.right = "20px"
@@ -65,6 +63,6 @@ export async function GET() {
     })();
   `
   return new NextResponse(js, {
-    headers: { 'Content-Type': 'application/javascript' },
+    headers: { "Content-Type": "application/javascript" },
   })
 }

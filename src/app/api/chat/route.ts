@@ -24,11 +24,11 @@ function clientFromToken(token: string): SupabaseClient<Database> {
 
 export async function POST(req: Request) {
   try {
-    const { chatbotId, messages, retrievedContext } = await req.json()
+    const { chatbotId, chatbotKey, messages, retrievedContext } = await req.json()
 
-    if (!chatbotId || !messages) {
+    if ((!chatbotId && !chatbotKey) || !messages) {
       return NextResponse.json(
-        { error: "Missing chatbotId or messages" },
+        { error: "Missing chatbotId/chatbotKey or messages" },
         { status: 400 }
       )
     }
@@ -52,16 +52,27 @@ export async function POST(req: Request) {
 
     const admin = getAdminSupabase()
 
-    // Fetch chatbot (use admin to bypass RLS for widget mode)
-    const { data: bot, error: botErr } = await admin
-      .from("chatbots")
-      .select("system_prompt, tone, user_id")
-      .eq("id", chatbotId)
-      .maybeSingle()
+    // Fetch chatbot: by ID (dashboard) or by public_key (widget)
+    let query = admin.from("chatbots").select("id, system_prompt, tone, user_id, is_public")
+    if (user && chatbotId) {
+      query = query.eq("id", chatbotId)
+    } else {
+      query = query.eq("public_key", chatbotKey)
+    }
+
+    const { data: bot, error: botErr } = await query.maybeSingle()
 
     if (botErr || !bot) {
       console.error("Chatbot fetch error:", botErr)
       return NextResponse.json({ error: "Chatbot not found" }, { status: 404 })
+    }
+
+    // If widget mode (no user), enforce is_public
+    if (!user && !bot.is_public) {
+      return NextResponse.json(
+        { error: "This chatbot is not public" },
+        { status: 403 }
+      )
     }
 
     const ownerUserId = bot.user_id
@@ -73,21 +84,18 @@ export async function POST(req: Request) {
     let effectiveContext = retrievedContext as string | undefined
     if (!effectiveContext) {
       try {
-        // Find latest user message content
         const lastUserMsg = [...messages].reverse().find((m: any) => m.role === "user")
         const queryText = (lastUserMsg?.content || "").toString().trim()
 
         if (queryText) {
-          // Create query embedding
           const emb = await openai.embeddings.create({
             model: "text-embedding-ada-002",
             input: queryText,
           })
           const queryEmbedding = emb.data[0].embedding
 
-          // Match against stored chunks
           const { data: matches, error: matchErr } = await admin.rpc("match_chatbot_chunks", {
-            p_chatbot_id: chatbotId,
+            p_chatbot_id: bot.id,
             p_query_embedding: queryEmbedding as any,
             p_match_count: 5,
           })
@@ -99,11 +107,9 @@ export async function POST(req: Request) {
         }
       } catch (retrievalErr) {
         console.error("Server-side retrieval error:", retrievalErr)
-        // Continue without context if retrieval fails
       }
     }
 
-    // Build system prompt
     const systemPrompt = [
       bot.system_prompt || "You are a helpful assistant.",
       bot.tone ? `Tone: ${bot.tone}` : "",
@@ -112,7 +118,6 @@ export async function POST(req: Request) {
       .filter(Boolean)
       .join("\n\n")
 
-    // Call OpenAI
     const res = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "system", content: systemPrompt }, ...messages],
@@ -122,13 +127,11 @@ export async function POST(req: Request) {
     const answer = res.choices?.[0]?.message?.content ?? ""
     const totalTokens = res.usage?.total_tokens ?? 0
 
-    // Enforce plan with actual tokens
     await assertWithinPlanLimit(admin, ownerUserId, totalTokens)
 
-    // Log usage against the chatbot owner (works for both dashboard & widget)
     await logUsage(admin, {
       userId: ownerUserId,
-      chatbotId: Number(chatbotId),
+      chatbotId: Number(bot.id),
       type: "chat",
       tokens: totalTokens,
     })

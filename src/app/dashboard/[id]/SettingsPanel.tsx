@@ -21,6 +21,9 @@ export default function SettingsPanel({ chatbot, chatbotId, onUpdate }: any) {
   const [position, setPosition] = useState<'left' | 'right'>(chatbot.widget_position === 'left' ? 'left' : 'right')
   const [openByDefault, setOpenByDefault] = useState<boolean>(!!chatbot.widget_open_by_default)
 
+  // Public embed toggle (new)
+  const [isPublic, setIsPublic] = useState<boolean>(!!chatbot.is_public)
+
   // UI state
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -43,6 +46,8 @@ export default function SettingsPanel({ chatbot, chatbotId, onUpdate }: any) {
       widget_greeting: greeting || '👋 Hi! How can I help you?',
       widget_position: position,
       widget_open_by_default: openByDefault,
+      // NEW: public embed control
+      is_public: isPublic,
     }
 
     try {
@@ -85,9 +90,14 @@ export default function SettingsPanel({ chatbot, chatbotId, onUpdate }: any) {
     }
   }
 
-  const embedCode = `<script src="${widgetScriptSrc}" data-chatbot-id="${chatbotId}" data-chatbot-name="${editName || chatbot.name}"></script>`
+  // ✅ Secure embed snippet using public_key (unguessable)
+  const embedCode = `<script src="${widgetScriptSrc}" data-chatbot-key="${chatbot.public_key}" data-chatbot-name="${editName || chatbot.name}"></script>`
 
   const handleCopy = async () => {
+    if (!chatbot.public_key) {
+      toast.error('⚠️ Missing public key. Save settings or refresh the page.')
+      return
+    }
     await navigator.clipboard.writeText(embedCode)
     setCopied(true)
     toast.success('📋 Embed code copied!')
@@ -185,13 +195,34 @@ export default function SettingsPanel({ chatbot, chatbotId, onUpdate }: any) {
           </div>
 
           <div className="flex items-center space-x-2 mt-6">
-            <input id="openByDefault" type="checkbox" checked={openByDefault} onChange={e => setOpenByDefault(e.target.checked)} />
+            <input
+              id="openByDefault"
+              type="checkbox"
+              checked={openByDefault}
+              onChange={e => setOpenByDefault(e.target.checked)}
+            />
             <label htmlFor="openByDefault" className="text-sm">Open by default</label>
           </div>
         </div>
 
+        {/* NEW: Public embed toggle */}
+        <div className="flex items-center space-x-2">
+          <input
+            id="isPublic"
+            type="checkbox"
+            checked={isPublic}
+            onChange={e => setIsPublic(e.target.checked)}
+          />
+          <label htmlFor="isPublic" className="text-sm">
+            Allow this chatbot to be used on external websites (public embed)
+          </label>
+        </div>
+
         <div className="pt-6">
           <h3 className="font-semibold mb-2">Embed Code</h3>
+          <p className="text-xs text-gray-600 mb-2">
+            Use this snippet on your website. It references a secure, unguessable key.
+          </p>
           <pre className="text-xs bg-gray-100 p-3 rounded border overflow-x-auto">{embedCode}</pre>
           <button onClick={handleCopy} className="mt-2 px-3 py-1 bg-gray-800 text-white text-sm rounded">
             {copied ? 'Copied!' : 'Copy'}
