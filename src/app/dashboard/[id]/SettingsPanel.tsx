@@ -55,7 +55,7 @@ export default function SettingsPanel({ chatbot, chatbotId, onUpdate }: any) {
       const token = session?.access_token
 
       const res = await fetch(`/api/chatbots/${chatbotId}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
