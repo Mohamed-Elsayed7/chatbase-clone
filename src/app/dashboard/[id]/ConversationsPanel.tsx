@@ -82,6 +82,38 @@ export default function ConversationsPanel({ chatbotId }: { chatbotId: number })
     }
   }
 
+  const renameConversation = async (convId: string) => {
+    const newTitle = prompt("Enter new conversation title:")
+    if (!newTitle || !newTitle.trim()) return
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+
+      const res = await fetch(`/api/conversations/${convId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ title: newTitle }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success("✅ Conversation renamed")
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === convId ? { ...c, title: newTitle } : c
+          )
+        )
+      } else {
+        toast.error(`⚠️ ${data.error || "Rename failed"}`)
+      }
+    } catch (err: any) {
+      toast.error(`⚠️ ${err.message}`)
+    }
+  }
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 h-full gap-6">
       {/* Conversation list */}
@@ -99,17 +131,28 @@ export default function ConversationsPanel({ chatbotId }: { chatbotId: number })
                 className="cursor-pointer"
                 onClick={() => loadMessages(conv.id)}
               >
-                <div className="text-sm font-medium">ID: {conv.id.slice(0, 8)}…</div>
+                <div className="text-sm font-medium">
+                  {conv.title || `Visitor ${conv.id.slice(0, 8)}…`}
+                </div>
                 <div className="text-xs text-gray-500">
                   {new Date(conv.created_at).toLocaleString()}
                 </div>
               </div>
-              <button
-                onClick={() => deleteConversation(conv.id)}
-                className="mt-2 text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"
-              >
-                Delete
-              </button>
+
+              <div className="flex space-x-2 mt-2">
+                <button
+                  onClick={() => renameConversation(conv.id)}
+                  className="text-xs bg-yellow-500 text-white px-2 py-1 rounded hover:bg-yellow-600"
+                >
+                  Rename
+                </button>
+                <button
+                  onClick={() => deleteConversation(conv.id)}
+                  className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"
+                >
+                  Delete
+                </button>
+              </div>
             </li>
           ))}
         </ul>

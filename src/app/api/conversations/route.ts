@@ -27,10 +27,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Chatbot not found or not public" }, { status: 404 })
     }
 
+    // 🔹 Get count of conversations for this bot to assign incremental title
+    const { count, error: countErr } = await admin
+      .from("conversations")
+      .select("*", { count: "exact", head: true })
+      .eq("chatbot_id", bot.id)
+
+    if (countErr) {
+      console.error("Conversation count error:", countErr)
+    }
+
+    const defaultTitle = `Conversation ${((count ?? 0) + 1)}`
+
+    // Create conversation with default title
     const { data: conv, error: convErr } = await admin
       .from("conversations")
-      .insert({ chatbot_id: bot.id })
-      .select("id")
+      .insert({ chatbot_id: bot.id, title: defaultTitle })
+      .select("id, title")
       .maybeSingle()
 
     if (convErr || !conv) {
@@ -38,7 +51,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Failed to start conversation" }, { status: 500 })
     }
 
-    return NextResponse.json({ conversationId: conv.id })
+    return NextResponse.json({ conversationId: conv.id, title: conv.title })
   } catch (err) {
     console.error("CONVERSATION CREATE ERROR:", err)
     return NextResponse.json({ error: "Failed to start conversation" }, { status: 500 })

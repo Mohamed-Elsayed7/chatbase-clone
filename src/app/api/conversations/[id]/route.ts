@@ -15,6 +15,7 @@ function clientFromToken(token: string): SupabaseClient<Database> {
   )
 }
 
+// ✅ Fetch messages of a conversation
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
     const admin = getAdminSupabase()
@@ -24,7 +25,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       .select("id, role, content, created_at")
       .eq("conversation_id", params.id)
       .order("created_at", { ascending: true })
-      .order("id", { ascending: true }) // ✅ fix wrong ordering
+      .order("id", { ascending: true }) // ✅ stable ordering
 
     if (error) throw error
 
@@ -38,7 +39,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   }
 }
 
-// ✅ DELETE conversation
+// ✅ Delete conversation
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   try {
     const conversationId = params.id
@@ -51,7 +52,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     let db = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
     let { data: { user } } = await db.auth.getUser()
 
-    // Fallback to Bearer
+    // Fallback to Bearer token
     if (!user) {
       const auth = req.headers.get("authorization") || ""
       const m = auth.match(/^Bearer\s+(.+)$/i)
@@ -68,7 +69,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
 
     const admin = getAdminSupabase()
 
-    // ✅ Fetch conversation to check ownership
+    // ✅ Check conversation exists and belongs to chatbot
     const { data: conv, error: convErr } = await admin
       .from("conversations")
       .select("id, chatbot_id")
@@ -79,7 +80,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       return NextResponse.json({ error: "Conversation not found" }, { status: 404 })
     }
 
-    // ✅ Check if user has access to the chatbot (superadmin bypass)
+    // ✅ Superadmin bypass, otherwise enforce access with RLS
     const { data: profile } = await admin
       .from("profiles")
       .select("is_superadmin")
@@ -87,7 +88,6 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       .maybeSingle()
 
     if (!profile?.is_superadmin) {
-      // normal user/org member — rely on RLS
       const { data: chatbot } = await db
         .from("chatbots")
         .select("id")
@@ -112,6 +112,86 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     console.error("DELETE CONVERSATION ERROR:", err)
     return NextResponse.json(
       { error: "Failed to delete conversation" },
+      { status: 500 }
+    )
+  }
+}
+
+// ✅ Rename conversation (set/update title)
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  try {
+    const conversationId = params.id
+    const { title } = await req.json().catch(() => ({}))
+
+    if (!conversationId || !title || !title.trim()) {
+      return NextResponse.json({ error: "Missing id or title" }, { status: 400 })
+    }
+
+    // Try cookie-based session
+    const cookieStore = cookies()
+    let db = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
+    let { data: { user } } = await db.auth.getUser()
+
+    // Fallback to Bearer token
+    if (!user) {
+      const auth = req.headers.get("authorization") || ""
+      const m = auth.match(/^Bearer\s+(.+)$/i)
+      if (m) {
+        db = clientFromToken(m[1]) as SupabaseClient<Database, "public", any>
+        const r = await db.auth.getUser()
+        user = r.data.user ?? null
+      }
+    }
+
+    if (!user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+    }
+
+    const admin = getAdminSupabase()
+
+    // ✅ Check conversation
+    const { data: conv, error: convErr } = await admin
+      .from("conversations")
+      .select("id, chatbot_id")
+      .eq("id", conversationId)
+      .maybeSingle()
+
+    if (convErr || !conv) {
+      return NextResponse.json({ error: "Conversation not found" }, { status: 404 })
+    }
+
+    // ✅ Superadmin bypass, otherwise enforce access
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("is_superadmin")
+      .eq("id", user.id)
+      .maybeSingle()
+
+    if (!profile?.is_superadmin) {
+      const { data: chatbot } = await db
+        .from("chatbots")
+        .select("id")
+        .eq("id", conv.chatbot_id)
+        .maybeSingle()
+
+      if (!chatbot) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
+    }
+
+    // ✅ Update title
+    const { error: updErr } = await admin
+      .from("conversations")
+      .update({ title })
+      .eq("id", conversationId)
+
+    if (updErr) throw updErr
+
+    return NextResponse.json({ success: true })
+  } catch (err: any) {
+    console.error("PATCH CONVERSATION ERROR:", err)
+    return NextResponse.json(
+      { error: "Failed to rename conversation" },
       { status: 500 }
     )
   }

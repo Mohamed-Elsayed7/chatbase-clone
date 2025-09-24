@@ -56,7 +56,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     if (profile?.is_superadmin) {
       const { data, error } = await admin
         .from("conversations")
-        .select("id, created_at")
+        .select("id, created_at, title")
         .eq("chatbot_id", chatbotId)
         .order("created_at", { ascending: false })
       if (error) throw error
@@ -77,7 +77,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     // Fetch conversations for this chatbot
     const { data, error } = await db
       .from("conversations")
-      .select("id, created_at")
+      .select("id, created_at, title")
       .eq("chatbot_id", chatbotId)
       .order("created_at", { ascending: false })
     if (error) throw error
