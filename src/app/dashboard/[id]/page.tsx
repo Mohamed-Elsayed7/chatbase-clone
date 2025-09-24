@@ -8,6 +8,7 @@ import SettingsPanel from './SettingsPanel'
 import FilesPanel from './FilesPanel'
 import ChatPanelWrapper from './ChatPanelWrapper'
 import AnalyticsPanel from './AnalyticsPanel'
+import ConversationsPanel from './ConversationsPanel'
 import { supabase } from '@/lib/supabaseClient'
 
 export default function ChatbotDetail() {
@@ -26,7 +27,6 @@ export default function ChatbotDetail() {
       setLoading(true)
       setError(null)
       try {
-        // 🔐 Pull token for Bearer auth
         const { data } = await supabase.auth.getSession()
         if (!data.session) {
           router.replace('/')
@@ -99,38 +99,11 @@ export default function ChatbotDetail() {
           {/* Tabs */}
           <div className="flex justify-between items-center border-b mb-4">
             <div className="flex space-x-2">
-              <TabButton
-                router={router}
-                chatbotId={chatbotId}
-                tab="settings"
-                active={activeTab === 'settings'}
-                label="Settings"
-                icon="⚙️"
-              />
-              <TabButton
-                router={router}
-                chatbotId={chatbotId}
-                tab="files"
-                active={activeTab === 'files'}
-                label="Files"
-                icon="📁"
-              />
-              <TabButton
-                router={router}
-                chatbotId={chatbotId}
-                tab="chat"
-                active={activeTab === 'chat'}
-                label="Chat"
-                icon="💬"
-              />
-              <TabButton
-                router={router}
-                chatbotId={chatbotId}
-                tab="analytics"
-                active={activeTab === 'analytics'}
-                label="Analytics"
-                icon="📊"
-              />
+              <TabButton router={router} chatbotId={chatbotId} tab="settings" active={activeTab === 'settings'} label="Settings" icon="⚙️" />
+              <TabButton router={router} chatbotId={chatbotId} tab="files" active={activeTab === 'files'} label="Files" icon="📁" />
+              <TabButton router={router} chatbotId={chatbotId} tab="chat" active={activeTab === 'chat'} label="Chat" icon="💬" />
+              <TabButton router={router} chatbotId={chatbotId} tab="analytics" active={activeTab === 'analytics'} label="Analytics" icon="📊" />
+              <TabButton router={router} chatbotId={chatbotId} tab="conversations" active={activeTab === 'conversations'} label="Conversations" icon="🗂️" />
             </div>
             <button
               onClick={() => router.push('/dashboard')}
@@ -142,19 +115,12 @@ export default function ChatbotDetail() {
 
           {/* Tab Content */}
           {activeTab === 'settings' && (
-            <SettingsPanel
-              chatbot={chatbot}
-              chatbotId={chatbotId}
-              onUpdate={setChatbot}
-            />
+            <SettingsPanel chatbot={chatbot} chatbotId={chatbotId} onUpdate={setChatbot} />
           )}
-          {activeTab === 'files' && (
-            <FilesPanel chatbot={chatbot} chatbotId={chatbotId} />
-          )}
-          {activeTab === 'chat' && (
-            <ChatPanelWrapper chatbot={chatbot} chatbotId={chatbotId} />
-          )}
+          {activeTab === 'files' && <FilesPanel chatbot={chatbot} chatbotId={chatbotId} />}
+          {activeTab === 'chat' && <ChatPanelWrapper chatbot={chatbot} chatbotId={chatbotId} />}
           {activeTab === 'analytics' && <AnalyticsPanel chatbotId={chatbotId} />}
+          {activeTab === 'conversations' && <ConversationsPanel chatbotId={chatbotId} />}
         </main>
       </div>
     </div>
