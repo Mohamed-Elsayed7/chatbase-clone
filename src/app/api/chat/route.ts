@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       )
     }
 
-    // Try to authenticate user (dashboard mode)
+    // 🔐 Authenticate (dashboard mode)
     const cookieStore = cookies()
     let db = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
     let {
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
 
     const admin = getAdminSupabase()
 
-    // Fetch chatbot: by ID (dashboard) or by public_key (widget)
+    // 🔹 Fetch chatbot: dashboard (id) or widget (public_key)
     let query = admin.from("chatbots").select("id, system_prompt, tone, user_id, is_public")
     if (user && chatbotId) {
       query = query.eq("id", chatbotId)
@@ -61,38 +61,18 @@ export async function POST(req: Request) {
     }
     const { data: bot, error: botErr } = await query.maybeSingle()
     if (botErr || !bot) {
-      console.error("Chatbot fetch error:", botErr)
       return NextResponse.json({ error: "Chatbot not found" }, { status: 404 })
     }
 
-    // If anonymous (widget mode), enforce is_public
     if (!user && !bot.is_public) {
       return NextResponse.json({ error: "This chatbot is not public" }, { status: 403 })
     }
 
-    // Optional: if a conversationId is provided, verify it belongs to this bot
-    let conversationOk = false
-    if (conversationId) {
-      const { data: conv, error: convErr } = await admin
-        .from("conversations")
-        .select("id, chatbot_id")
-        .eq("id", conversationId)
-        .maybeSingle()
-      if (convErr) {
-        console.error("Conversation fetch error:", convErr)
-      } else if (conv && conv.chatbot_id === bot.id) {
-        conversationOk = true
-      }
-    }
-
+    const isWidget = !!chatbotKey && !user
     const ownerUserId = bot.user_id
 
-    // Light pre-check
-    await assertWithinPlanLimit(admin, ownerUserId, 1000)
-
-    // If no retrievedContext provided (widget), do server-side retrieval
+    // ✅ Build context if needed
     let effectiveContext = retrievedContext as string | undefined
-    // Find latest user message content now (we'll use it twice)
     const lastUserMsg = [...messages].reverse().find((m: any) => m.role === "user")
     const queryText = (lastUserMsg?.content || "").toString().trim()
 
@@ -109,9 +89,7 @@ export async function POST(req: Request) {
           p_query_embedding: queryEmbedding as any,
           p_match_count: 5,
         })
-        if (matchErr) {
-          console.error("Vector match RPC error:", matchErr)
-        } else if (matches?.length) {
+        if (!matchErr && matches?.length) {
           effectiveContext = matches.map((m: any) => m.content).join("\n---\n")
         }
       } catch (retrievalErr) {
@@ -119,7 +97,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // Build system prompt
     const systemPrompt = [
       bot.system_prompt || "You are a helpful assistant.",
       bot.tone ? `Tone: ${bot.tone}` : "",
@@ -128,7 +105,7 @@ export async function POST(req: Request) {
       .filter(Boolean)
       .join("\n\n")
 
-    // Call OpenAI
+    // ✅ Call OpenAI
     const res = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "system", content: systemPrompt }, ...messages],
@@ -138,29 +115,32 @@ export async function POST(req: Request) {
     const answer = res.choices?.[0]?.message?.content ?? ""
     const totalTokens = res.usage?.total_tokens ?? 0
 
-    // Enforce plan with actual tokens
     await assertWithinPlanLimit(admin, ownerUserId, totalTokens)
 
-    // Save the last user msg + assistant answer into the conversation (if verified)
-    if (conversationId && conversationOk && lastUserMsg && answer) {
-      const { error: saveErr } = await admin.from("conversation_messages").insert([
-        {
-          conversation_id: conversationId,
-          role: "user",
-          content: lastUserMsg.content,
-        },
-        {
-          conversation_id: conversationId,
-          role: "assistant",
-          content: answer,
-        },
-      ])
-      if (saveErr) {
-        console.error("Saving conversation messages failed:", saveErr)
+    // ✅ Save conversation (widget mode only, not dashboard)
+    let newConversationId = conversationId
+    if (isWidget && lastUserMsg && answer) {
+      if (!conversationId) {
+        const { data: conv, error: convErr } = await admin
+          .from("conversations")
+          .insert({ chatbot_id: bot.id })
+          .select("id")
+          .maybeSingle()
+        if (conv && !convErr) {
+          newConversationId = conv.id
+        }
+      }
+
+      if (newConversationId) {
+        const { error: saveErr } = await admin.from("conversation_messages").insert([
+          { conversation_id: newConversationId, role: "user", content: lastUserMsg.content },
+          { conversation_id: newConversationId, role: "assistant", content: answer },
+        ])
+        if (saveErr) console.error("Saving messages failed:", saveErr)
       }
     }
 
-    // Log usage
+    // ✅ Always log usage
     await logUsage(admin, {
       userId: ownerUserId,
       chatbotId: Number(bot.id),
@@ -172,6 +152,7 @@ export async function POST(req: Request) {
       answer,
       usage: res.usage,
       contextUsed: !!effectiveContext,
+      conversationId: newConversationId,
     })
   } catch (err: any) {
     console.error("CHAT ERROR:", err)
