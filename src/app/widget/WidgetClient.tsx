@@ -47,7 +47,9 @@ export default function WidgetClient() {
           const data = await res.json()
           if (res.ok && data.conversationId) {
             conv = data.conversationId
-            localStorage.setItem("conversationId", conv)
+            if (conv) {
+              localStorage.setItem("conversationId", conv)
+            }
           }
         } catch (e) {
           console.error("Create conversation failed", e)
